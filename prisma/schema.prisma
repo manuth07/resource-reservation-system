@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  EMPLOYEE
+  ADMIN
+  DEPARTMENT_HEAD
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ReservationStatus {
+  PENDING
+  AWAITING_APPROVAL
+  APPROVED
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalStage {
+  ADMIN_REVIEW
+  DEPARTMENT_HEAD_APPROVAL
+  ADMIN_CONFIRMATION
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+model Department {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @unique
+  code         String        @unique
+  description  String?
+  // Nullable so the department can be created before its head's user account.
+  headId       String?       @db.Uuid
+  head         User?         @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  employees    User[]        @relation("DepartmentMembers")
+  reservations Reservation[]
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@index([headId])
+}
+
+model User {
+  id                String        @id @default(uuid()) @db.Uuid
+  employeeId        String        @unique
+  name              String
+  email             String        @unique
+  passwordHash      String
+  role              UserRole      @default(EMPLOYEE)
+  accountStatus     AccountStatus @default(ACTIVE)
+  departmentId      String        @db.Uuid
+  department        Department    @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: Restrict)
+  headedDepartments Department[]  @relation("DepartmentHead")
+  reservations      Reservation[] @relation("ReservationRequester")
+  approvals         Approval[]    @relation("ApprovalApprover")
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@index([departmentId, role, accountStatus])
+}
+
+model ResourceCategory {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @unique
+  code         String        @unique
+  description  String?
+  metadata     Json?         @db.JsonB
+  // Explicit policy discriminator; do not infer transport behavior from the name.
+  isVehicle    Boolean       @default(false)
+  resources    Resource[]
+  reservations Reservation[]
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+}
+
+model Resource {
+  id               String           @id @default(uuid()) @db.Uuid
+  name             String
+  resourceCode     String           @unique
+  categoryId       String           @db.Uuid
+  category         ResourceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  capacity         Int?
+  location         String?
+  isActive         Boolean          @default(true)
+  requiresApproval Boolean          @default(false)
+  reservations     Reservation[]
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@index([categoryId, isActive, requiresApproval])
+}
+
+model Reservation {
+  id                  String            @id @default(uuid()) @db.Uuid
+  requesterId         String            @db.Uuid
+  requester           User              @relation("ReservationRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  // Submission-time department preserves routing/history after employee transfers.
+  departmentId        String            @db.Uuid
+  department          Department        @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  requestedCategoryId String            @db.Uuid
+  requestedCategory   ResourceCategory  @relation(fields: [requestedCategoryId], references: [id], onDelete: Restrict)
+  resourceId          String?           @db.Uuid
+  resource            Resource?         @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  driverId            String?           @db.Uuid
+  driver              Driver?           @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  startTime           DateTime          @db.Timestamptz(3)
+  endTime             DateTime          @db.Timestamptz(3)
+  purpose             String
+  destination         String?
+  status              ReservationStatus @default(PENDING)
+  approvals           Approval[]
+  createdAt           DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(3)
+
+  // Availability predicates: existing.startTime < end AND existing.endTime > start.
+  // These indexes support lookups but do not prevent concurrent overlapping bookings.
+  @@index([startTime, endTime])
+  @@index([status, startTime])
+  @@index([resourceId, status, startTime, endTime])
+  @@index([driverId, status, startTime, endTime])
+  @@index([requesterId, createdAt])
+  @@index([departmentId, status, startTime])
+  @@index([requestedCategoryId, status, startTime])
+}
+
+model Approval {
+  id              String           @id @default(uuid()) @db.Uuid
+  reservationId   String           @db.Uuid
+  reservation     Reservation      @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  approverId      String           @db.Uuid
+  approver        User             @relation("ApprovalApprover", fields: [approverId], references: [id], onDelete: Restrict)
+  stage           ApprovalStage
+  decision        ApprovalDecision
+  rejectionReason String?
+  decidedAt       DateTime         @default(now()) @db.Timestamptz(3)
+
+  // One final decision per stage. A rejected request must be submitted anew.
+  @@unique([reservationId, stage])
+  @@index([approverId, decidedAt])
+}
+
+model Driver {
+  id               String        @id @default(uuid()) @db.Uuid
+  name             String
+  driverIdentifier String        @unique
+  phone            String
+  email            String?
+  isActive         Boolean       @default(true)
+  reservations     Reservation[]
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+}
