@@ -78,8 +78,10 @@ Import helpers from `@/lib/authorization` in protected Node.js code:
 
 AuthorizationError carries a 401 or 403 and a stable code. Future routes/actions
 must translate it into an appropriate response, and pages can redirect after the
-server check. These helpers are deliberately uncached across calls so account
-deactivation, demotion, transfers, and flag changes are read from PostgreSQL.
+server check. The identity lookup uses React render-pass memoization to deduplicate
+repeated Server Component reads within one render. It is not a shared or cross-request
+cache; new requests, actions and handlers still read deactivation, demotion,
+transfers, flag changes and version revocation from PostgreSQL.
 For sensitive writes, recheck relevant account/department state within the write
 transaction if concurrent administration could change eligibility.
 

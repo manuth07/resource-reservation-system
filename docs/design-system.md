@@ -100,10 +100,16 @@ Import from `@/components/ui`:
 - `Button`: `primary` (default), `secondary`, `danger`. Always set `type` in forms.
   Use primary for the main action, secondary for auxiliary actions. Use the same
   `.button .button-primary` classes on links that navigate rather than submit.
-- `Input`: native input props and `.field`. Native selects/textareas use `.field`.
-- `FormField`: explicit `id`, visible `label`, optional `hint`, and native children.
-  Consumers connect hints with `aria-describedby="<id>-hint"`. It does not infer
-  validation errors or clone children; field-specific errors remain explicit.
+- `Input`: native input props and `.field`. Textareas use `.field`.
+- `Select`: native select with a decorative chevron, matching input height/padding
+  and native keyboard behavior. Use it for resource category/status controls.
+- `FormField`: explicit `id`, visible `label`, optional `required`, `hint` and `error`.
+  Consumers connect hints/errors using `aria-describedby="<id>-hint <id>-error"`
+  and set `aria-invalid` on invalid controls. It does not clone children.
+- `ConfirmationDialog`: native modal dialog with a labelled title/description,
+  Cancel-first focus and focus restoration. Escape dismisses while idle; pending
+  operations disable dismissal and both buttons until the request completes.
+  Callers retain their synchronous submission lock and authoritative Server Action.
 - `Card`: rectangular section with optional accessible label; padding is supplied
   by the caller. Supply a heading inside it for semantic content structure.
 - `PageHeader`: one page title, optional section label, description and action slot.
@@ -112,6 +118,10 @@ Import from `@/components/ui`:
   meaningful visible text; the badge alone is not an ARIA live region.
 - `EmptyState`: explain what is absent and what to do next; optional valid action.
 - `LoadingState`: a polite status message without decorative animation.
+- `PageLoading`: table/form/detail skeletons with accessible status text. Decorative
+  placeholders are hidden from assistive technology and have no shimmer animation.
+- `NavigationLink`: default Next prefetching plus a small inline pending hint;
+  its spinner respects reduced motion.
 - `DataTable`: labelled scrollable region and native table with caption. Callers
   provide `thead`, `tbody`, scoped column headers and rows. No generic sorting,
   filtering or pagination framework is added before those needs exist.
@@ -171,12 +181,16 @@ existing 448px sign-in panel on the right at `lg` and above, as requested by the
 product owner. Hide the informational panel on smaller screens. Password change
 keeps the compact centered panel. Both retain the shared fonts and control styles.
 
-Preserve the root Suspense boundary with Cache Components. The affected server
-pages and protected layout call `await connection()` before session reads so
+Preserve root, protected-layout and page-local Suspense boundaries with Cache
+Components. Synchronous page/layout defaults return fallbacks; their async server
+children call `await connection()` before session reads so
 Auth.js request-specific randomness cannot run during prerendering. Preserve
 these request-time boundaries. Session-dependent UI
 must never be placed in a shared `use cache` scope. Pages and actions retain their
 independent authorization checks; hiding a menu does not grant or revoke access.
+React render-pass memoization deduplicates identity reads within one render only;
+new requests and sensitive write transactions retain current-database checks.
+See `docs/rendering-performance.md` for rendering and navigation conventions.
 
 ## Accessibility and validation
 

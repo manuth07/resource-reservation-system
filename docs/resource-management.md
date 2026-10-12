@@ -19,7 +19,63 @@ The navigation highlights nested routes. Employees and department heads see Reso
 but not administrative resource/category links or modification controls. Existing
 employee/account navigation and logout/password flows remain available.
 
-## Validation and authorization
+## Resource form refinements
+
+Category classification uses native Standard Resource / Vehicle / Transport radios
+backed by the existing `isVehicle` boolean. Classification describes booking flow;
+`requiresApproval` is independent, and standard resources can also require approval.
+Referenced categories retain their protected classification and code.
+
+Resource/category inputs are controlled so validation failures preserve entered
+values. Known duplicate errors identify the submitted code/name and associate with
+the relevant field. Exact unique-key races are still rejected by PostgreSQL. When
+a category unique error lacks constraint metadata, a safe form-level message names
+both submitted values instead of guessing which field conflicted.
+
+Vehicle forms hide Location and retain its stored value. The service also preserves
+the current database location in the edit transaction, even if the submitted value
+is empty. Standard resource locations remain optional and editable. Vehicle catalog
+rows/details omit irrelevant location metadata. No database fields were changed.
+
+Row deactivation and deactivation during editing share a native modal dialog. The
+dialog names the resource, explains the new-booking policy and retained history,
+focuses Cancel, supports Escape while idle and restores focus when closed. During
+the request, controls/dismissal are disabled; synchronous submission locks prevent
+same-tick duplicates. Failures remain visible and allow retry. Edit confirmation
+also explains that other form edits will be saved. No reservations are changed.
+Resource booking remains future functionality; its service must enforce `isActive`.
+
+Desktop row actions share a horizontal column and 44px controls. On narrow screens
+they may wrap inside the labelled, keyboard-focusable table scroll region. Native
+selects use a shared chevron wrapper. Existing Suspense/loading/navigation feedback,
+fonts, tokens, authorization, history protections and transaction locks are retained.
+
+Regression tests use mock transactions, rendered markup and simulated dialog/hooks;
+they do not prove real browser focus trapping or PostgreSQL concurrency behavior.
+Authenticated browser checks should include Tab/Shift+Tab, Escape, pending double
+clicks, error retry, mobile table scrolling and retained values after duplicate errors.
+
+Files touched by this refinement (separate from the preceding rendering work):
+
+- `src/components/category-form.tsx`
+- `src/components/resource-form.tsx`
+- `src/components/resource-status-control.tsx`
+- `src/components/resource-list.tsx`
+- `src/components/confirmation-dialog.tsx` (new)
+- `src/components/ui.tsx`
+- `src/app/globals.css`
+- `src/app/(protected)/resources/[id]/page.tsx`
+- `src/app/resource-actions.ts`
+- `src/lib/resource-service.ts`
+- `src/lib/resource-validation.ts`
+- `src/lib/resource-types.ts`
+- `tests/resource-actions.test.mjs`
+- `tests/resource-management.test.mjs`
+- `tests/resource-ux.test.mjs` (new)
+- `docs/design-system.md`
+- `docs/resource-management.md`
+
+## Server validation and authorization
 
 Services in `src/lib/resource-service.ts` use existing current-database guards.
 Every mutation requires normal-access ADMIN, and rechecks role, ACTIVE status,
