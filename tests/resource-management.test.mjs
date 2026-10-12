@@ -37,9 +37,26 @@ test("invalid data, UUIDs, categories and vehicle direct-booking policies reject
 });
 test("canonical duplicate category codes/names and resource codes reject, including legacy casing", async () => {
   const f = resourceFixture({ category: { code: "meeting_room" }, resource: { resourceCode: "room_001" } });
-  await assert.rejects(f.service.saveResource(resourceInput), /code is already in use/);
+  await assert.rejects(f.service.saveResource(resourceInput), (error) => error.field === "resourceCode" && error.message === "Resource code ROOM_001 is already in use. Enter a unique code.");
   await assert.rejects(f.service.saveCategory({ ...categoryInput, name: "Another" }), /already in use/);
   await assert.rejects(f.service.saveCategory({ ...categoryInput, code: "OTHER", name: " meeting ROOMS " }), /already in use/);
+});
+
+test("vehicle edits preserve stored location even if submitted location is empty; standard locations remain editable", async () => {
+  const vehicle = resourceFixture({ category: { isVehicle: true }, resource: { requiresApproval: true, location: "Legacy garage" } });
+  await vehicle.service.saveResource({ ...resourceInput, requiresApproval: true, location: "" }, resourceId, timestamp);
+  assert.equal(vehicle.state().resources[0].location, "Legacy garage");
+  const standard = resourceFixture();
+  await standard.service.saveResource({ ...resourceInput, location: "" }, resourceId, timestamp);
+  assert.equal(standard.state().resources[0].location, null);
+});
+
+test("unique-key race errors identify the submitted resource code; category code and name collisions have accurate fields", async () => {
+  const race = resourceFixture({ empty: true, failWrite: "P2002" });
+  await assert.rejects(race.service.saveResource(resourceInput), (error) => error.field === "resourceCode" && error.message.includes("ROOM_001") && !error.message.includes("P2002"));
+  const fixture = resourceFixture();
+  await assert.rejects(fixture.service.saveCategory({ ...categoryInput, name: "Another category" }), (error) => error.field === "code" && error.message.includes("MEETING_ROOM"));
+  await assert.rejects(fixture.service.saveCategory({ ...categoryInput, code: "OTHER" }), (error) => error.field === "name" && error.message.includes("Meeting rooms") && !error.message.includes("MEETING_ROOM"));
 });
 test("two simulated concurrent canonical-code creations produce only one record", async () => {
   const f = resourceFixture({ empty: true });

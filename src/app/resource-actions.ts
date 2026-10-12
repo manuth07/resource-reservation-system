@@ -15,7 +15,8 @@ function flag(data: FormData, key: string) {
   throw new ResourceManagementError("Choose a valid option.");
 }
 function failure(error: unknown): ResourceActionResult {
-  if (error instanceof ResourceManagementError || error instanceof RateLimitError) return { error: error.message };
+  if (error instanceof ResourceManagementError) return { error: error.message, ...(error.field ? { fieldErrors: { [error.field]: error.message } } : {}) };
+  if (error instanceof RateLimitError) return { error: error.message };
   if (error instanceof AuthorizationError) return { error: "Your session cannot perform this operation. Sign in again or finish your password change." };
   return { error: "The operation could not be completed. Please reload and try again." };
 }

@@ -6,4 +6,5 @@ export type ResourceRecord = {
   category: ResourceCategoryOption;
 };
 export type ResourceFilters = { q: string; categoryId: string; status: "ALL" | "ACTIVE" | "INACTIVE"; page: number };
-export type ResourceActionResult = { error?: string };
+export type ResourceField = "name" | "code" | "resourceCode" | "description" | "categoryId" | "capacity" | "location" | "isVehicle" | "isActive" | "requiresApproval";
+export type ResourceActionResult = { error?: string; fieldErrors?: Partial<Record<ResourceField, string>> };

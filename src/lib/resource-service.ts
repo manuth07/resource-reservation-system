@@ -43,11 +43,14 @@ export async function listResources(input: Record<string, string | string[] | un
   ]);
   return { resources: rows.map(resourceDto), total, filters, pages: Math.max(1, Math.ceil(total / 50)) };
 }
-export async function getResource(id: string): Promise<ResourceRecord | null> {
-  await requireAuthenticatedUser();
+async function findResource(id: string): Promise<ResourceRecord | null> {
   if (!validResourceId(id)) return null;
   const row = await prisma.resource.findUnique({ where: { id }, select: resourceSelect });
   return row ? resourceDto(row) : null;
+}
+export async function getResource(id: string): Promise<ResourceRecord | null> {
+  await requireAuthenticatedUser();
+  return findResource(id);
 }
 async function policyReferences(tx: Prisma.TransactionClient, id: string, categoryId: string) {
   // Category-only requests also lack a policy snapshot. Keep their history safe.
@@ -55,11 +58,11 @@ async function policyReferences(tx: Prisma.TransactionClient, id: string, catego
 }
 export async function getResourceForEdit(id: string) {
   await requireRole(UserRole.ADMIN);
-  const resource = await getResource(id);
+  const resource = await findResource(id);
   return resource ? { resource, policyLocked: (await policyReferences(prisma, id, resource.categoryId)) > 0 } : null;
 }
 
-async function mutation<T>(run: (tx: Prisma.TransactionClient) => Promise<T>) {
+async function mutation<T>(run: (tx: Prisma.TransactionClient) => Promise<T>, duplicateError?: (error: unknown) => ResourceManagementError) {
   const actor = await requireRole(UserRole.ADMIN);
   await enforceRateLimit("resource-management", actor.id, 60, 60_000);
   try {
@@ -74,7 +77,7 @@ async function mutation<T>(run: (tx: Prisma.TransactionClient) => Promise<T>) {
     }, { maxWait: 5000, timeout: 10000, isolationLevel: "ReadCommitted" });
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
-    if (code === "P2002") throw new ResourceManagementError("A code or category name is already in use. Reload and choose another value.");
+    if (code === "P2002") throw duplicateError?.(error) ?? new ResourceManagementError("A code or category name is already in use. Reload and choose another value.");
     if (code === "P2003" || code === "P2025") throw new ResourceManagementError("A referenced record changed. Reload the page and try again.");
     if (code === "P2034" || code === "P2028") throw new ResourceManagementError("Another operation is in progress. Reload and try again.");
     throw error;
@@ -84,15 +87,19 @@ function unchanged(current: Date, expected: unknown) {
   if (current.getTime() !== revision(expected).getTime()) throw new ResourceManagementError("This record was changed by another administrator. Reload before editing.");
 }
 export async function saveCategory(input: Record<string, unknown>, id?: string, expectedRevision?: string) {
+  let attempted: ReturnType<typeof parseCategory> | undefined;
+  const codeConflict = () => new ResourceManagementError(`Category code ${attempted!.code} is already in use. Enter a unique code.`, "code");
+  const nameConflict = () => new ResourceManagementError(`Category name ${attempted!.name} is already in use. Enter a unique name.`, "name");
   return mutation(async (tx) => {
     const data = parseCategory(input);
+    attempted = data;
     if (id) resourceId(id);
-    const duplicates = await tx.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "public"."ResourceCategory"
+    const duplicates = await tx.$queryRaw<{ id: string; code: string }[]>`
+      SELECT "id", "code" FROM "public"."ResourceCategory"
       WHERE (upper(btrim("code")) = ${data.code} OR lower(btrim("name")) = lower(${data.name}))
         AND (${id ?? null}::uuid IS NULL OR "id" <> ${id ?? null}::uuid) LIMIT 1
     `;
-    if (duplicates.length) throw new ResourceManagementError("A category code or name is already in use.");
+    if (duplicates.length) throw duplicates[0].code.trim().toUpperCase() === data.code ? codeConflict() : nameConflict();
     if (!id) return tx.resourceCategory.create({ data, select: { id: true } });
     // FOR UPDATE conflicts with FK insertion locks, so a new reference cannot
     // sneak between the reference check and a classification change.
@@ -105,17 +112,28 @@ export async function saveCategory(input: Record<string, unknown>, id?: string, 
     if (referenced) data.code = current.code; // retain the original historical identifier, including legacy casing
     await tx.resourceCategory.update({ where: { id }, data }); // metadata is preserved
     return { id };
+  }, (error) => {
+    // Prisma adapters may not expose a unique target. Only map known targets;
+    // otherwise identify both submitted values without leaking database details.
+    const target = (error as { meta?: { target?: unknown } }).meta?.target;
+    const fields = Array.isArray(target) ? target : [target];
+    if (attempted && (fields.includes("code") || fields.includes("ResourceCategory_code_key"))) return codeConflict();
+    if (attempted && (fields.includes("name") || fields.includes("ResourceCategory_name_key"))) return nameConflict();
+    return new ResourceManagementError(attempted ? `Category code ${attempted.code} or name ${attempted.name} is already in use. Enter unique values.` : "A category code or name is already in use.");
   });
 }
 export async function saveResource(input: Record<string, unknown>, id?: string, expectedRevision?: string) {
+  let attemptedCode = "";
+  const codeConflict = () => new ResourceManagementError(`Resource code ${attemptedCode} is already in use. Enter a unique code.`, "resourceCode");
   return mutation(async (tx) => {
     const data = parseResource(input);
+    attemptedCode = data.resourceCode;
     if (id) resourceId(id);
     const duplicates = await tx.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "public"."Resource" WHERE upper(btrim("resourceCode")) = ${data.resourceCode}
         AND (${id ?? null}::uuid IS NULL OR "id" <> ${id ?? null}::uuid) LIMIT 1
     `;
-    if (duplicates.length) throw new ResourceManagementError("A resource code is already in use.");
+    if (duplicates.length) throw codeConflict();
     if (id) await tx.$queryRaw`SELECT "id" FROM "public"."Resource" WHERE "id" = ${id}::uuid FOR UPDATE`;
     const current = id ? await tx.resource.findUnique({ where: { id } }) : null;
     if (id && !current) throw new ResourceManagementError("Resource not found.");
@@ -124,13 +142,16 @@ export async function saveResource(input: Record<string, unknown>, id?: string, 
       await tx.$queryRaw`SELECT "id" FROM "public"."ResourceCategory" WHERE "id" = ${category}::uuid FOR UPDATE`;
     }
     const category = await tx.resourceCategory.findUnique({ where: { id: data.categoryId }, select: categorySelect });
-    if (!category) throw new ResourceManagementError("Choose an existing category.");
+    if (!category) throw new ResourceManagementError("Choose an existing category.", "categoryId");
+    // Vehicle location is not editable in this workflow. Preserve legacy data
+    // in the transaction, even if a submitted form omits or clears the field.
+    if (current && category.isVehicle) data.location = current.location;
     if (category.isVehicle && !data.requiresApproval) throw new ResourceManagementError("Vehicles must require approval and later administrator assignment.");
     if (current && (data.categoryId !== current.categoryId || data.requiresApproval !== current.requiresApproval) && await policyReferences(tx, current.id, current.categoryId)) throw new ResourceManagementError("Reservation history or category-only requests prevent changing this resource's category or approval policy.");
     if (!id) return tx.resource.create({ data, select: { id: true } });
     await tx.resource.update({ where: { id }, data });
     return { id };
-  });
+  }, codeConflict);
 }
 export async function setResourceActive(id: string, active: boolean, expectedRevision: string) {
   return mutation(async (tx) => {

@@ -53,3 +53,11 @@ test("category actions use fixed redirects; unexpected backend failures expose n
   const result = await actionsFor(failing).actions.saveResourceAction({}, form(resourceInput));
   assert.equal(result.error.includes("postgres"), false); assert.match(result.error, /could not be completed/);
 });
+
+test("actions return associated inline duplicate-code errors without losing the submitted values", async () => {
+  const { actions } = actionsFor(resourceFixture());
+  const resource = await actions.saveResourceAction({}, form(resourceInput));
+  assert.equal(resource.fieldErrors.resourceCode, "Resource code ROOM_001 is already in use. Enter a unique code.");
+  const category = await actions.saveCategoryAction({}, form({ ...categoryInput, name: "Other category" }));
+  assert.equal(category.fieldErrors.code, "Category code MEETING_ROOM is already in use. Enter a unique code.");
+});
