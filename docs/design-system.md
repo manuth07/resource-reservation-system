@@ -32,8 +32,8 @@ the existing Turbopack loader configuration remains in place.
 | `--background` | `#F5F7FA` | Application canvas |
 | `--surface` | `#FFFFFF` | Panels and surfaces |
 | `--border` | `#D9E1EA` | Structural panel/table separators |
-| `--secondary` | `#34435B` | Descriptions, labels and navigation |
-| `--muted` | `#526277` | Supporting text and placeholders |
+| `--secondary` | `#526176` | Descriptions, labels and navigation |
+| `--muted` | `#64748B` | Supporting text and placeholders |
 | `--control-border` | `#8191A5` | Visible input/button boundaries |
 | `--primary-hover` / `--primary-active` | `#066B65` / `#055B56` | Teal interaction states |
 | `--on-primary` | `#FFFFFF` | Text on primary/danger buttons |
@@ -42,12 +42,28 @@ the existing Turbopack loader configuration remains in place.
 | `--disabled` / `--disabled-foreground` | `#E9EEF3` / `#526277` | Disabled controls |
 | `--input` | `#FFFFFF` | Input background |
 | `--table-header` | `#EDF1F6` | Column headings and neutral status |
-| `--navigation-selected` | `#E5F3F1` | Current navigation background |
+| `--navigation-selected` | `#E5F3F1` | Soft teal control/policy background |
+| `--sidebar` / `--sidebar-text` | `#071126` / `#D8E2EF` | Dark workspace sidebar and light links |
+| `--sidebar-muted` / `--sidebar-selected` | `#8FA2BD` / `#182A3F` | Navigation groups and selected/hover fill |
+| `--sidebar-border` | `#1E2C3E` | Sidebar dividers |
 | `--success` / `--success-surface` | `#176544` / `#EDF7F0` | Successful outcomes, Active |
 | `--warning` / `--warning-surface` | `#78520D` / `#FFF6DF` | Attention or blocked prerequisites |
 | `--danger` / `--danger-surface` | `#A22C35` / `#FCEDEE` | Errors and destructive actions |
 | `--danger-hover` | `#87232B` | Destructive action hover |
 | `--info` / `--info-surface` | `#25588C` / `#EDF4FB` | Informational states |
+
+### Category Color System
+
+Resource categories use distinct, restrained semantic color styles. All foreground/background
+pairings exceed WCAG AA 4.5:1 contrast requirements:
+
+| Classification | Background | Text | Border | Contrast ratio |
+| --- | --- | --- | --- | --- |
+| Meeting Rooms | `#E8F1FA` | `#28577C` | `#BFD3E6` | 6.1:1 |
+| Vehicles / Transport | `#FFF1DA` | `#875A17` | `#E8CE9F` | 5.3:1 |
+| Equipment / Projectors | `#F0EBF9` | `#644E87` | `#D7C9ED` | 6.4:1 |
+| Training Facilities | `#E8F3EA` | `#286846` | `#C2DDC9` | 5.6:1 |
+| Custom Slate Fallback | `#F1F4F8` | `#3E4D63` | `#CBD5E1` | 6.9:1 |
 
 Use utilities such as `bg-surface`, `text-secondary`, `text-muted`, `border-border`,
 `text-primary`, and `font-heading`. Status and feedback classes consume the same
@@ -82,8 +98,10 @@ enable it. Avoid thin type, uppercase blocks and excessive tracking.
 ## Spacing and shapes
 
 Use an 8px rhythm: Tailwind `2`, `4`, `6`, `8`, `12` correspond to 8, 16, 24, 32,
-48px. Use 8px label/input gaps, 16–24px field gaps, 24–32px panel padding and 32px
-between sections. On mobile use 16px page gutters; at tablet/desktop use 32–48px.
+48px. Use 8px label/input gaps, 20px editor field gaps, 24px editor padding and 24px
+between major sections. Directory headers/controls use 16–20px padding; table cells
+use 12px vertical / 16px horizontal padding. On mobile use 16px page gutters;
+at tablet/desktop use 32px horizontal gutters.
 Tiny typographic details and thin borders may fall outside that rhythm.
 
 - Panels, cards, tables and feedback: **0px radius**.
@@ -178,21 +196,43 @@ screen-reader labels. Resource tables use middle alignment and stronger identity
 ## Page and navigation patterns
 
 Authenticated pages reuse `(protected)/layout.tsx`: brand/header, native account
-menu, current-section label, role-filtered navigation, and constrained main area.
+menu, role-filtered navigation, and constrained main area through `WorkspaceShell`.
 Account menu contains employee ID, current role, password link and logout. Only
 Admins see Employees navigation. Do not expose links to unimplemented resource or
 reservation pages; add them when working routes and server authorization exist.
 `WorkspaceNavigation` sets `aria-current="page"`, selected fill and border.
 
-The desktop shell spans the full viewport with a 224px navigation column flush
-with the left edge; do not center or constrain the shell with an outer max-width.
-below the `md` breakpoint navigation becomes a wrapping horizontal region. Main
-content uses `min-width: 0`, flexible headers and responsive gutters. Keep the
-account menu within viewport bounds. Forms use one column on mobile and two on
-tablet when practical. Login uses a navy informational panel on the left and the
+The approved enterprise shell spans the viewport with a sticky 240px dark navy
+sidebar at `lg` (1024px) and above. Workspace contains Dashboard and Resource catalog;
+Administration contains Resources, Categories and Employees and renders only for
+Admins. Group labels are muted; selected links have a lighter navy fill and teal
+left indicator border. The sidebar footer houses the single unified account control:
+a compact initials avatar, employee ID, role badge, and expandable menu for Change
+password and Sign out. The topbar is clean, containing route context and breadcrumbs
+without duplicate user identity on desktop.
+
+Below `lg`, the sidebar is replaced by a native Menu disclosure in the topbar alongside
+a compact mobile account avatar. Its dark navigation panel supports keyboard operation,
+Escape dismissal with summary focus, and closes on client navigation. It is a disclosure,
+not a modal, so it does not trap focus. The account menu remains accessible on mobile.
+No icon package is installed; use clear text navigation rather than introducing one.
+
+Main content uses `min-width: 0`, 16/32px responsive horizontal gutters and a 1440px
+maximum inside the stage. The sidebar itself stays flush left. Resource/category
+editors are limited to 840px with identity, policy/classification and action sections.
+Forms use one column on mobile and two on tablet when practical. Login uses a navy informational panel on the left and the
 existing 448px sign-in panel on the right at `lg` and above, as requested by the
 product owner. Hide the informational panel on smaller screens. Password change
 keeps the compact centered panel. Both retain the shared fonts and control styles.
+
+Resource directories combine heading/count, search/filter controls, results and
+pagination into one panel. Counts come from the existing query and explicitly say
+"matching filters" when constrained; do not invent active/inactive counts from a
+single paginated subset. Categories use separate Resources and Requests columns.
+Descriptions may be clamped to two lines because the existing Edit page exposes
+the full text; names/codes remain readable. Employee catalogs omit management actions.
+Operational status always stays distinct from booking availability. Avoid duplicate
+headings, large informational banners and separate decorative statistic cards.
 
 Preserve root, protected-layout and page-local Suspense boundaries with Cache
 Components. Synchronous page/layout defaults return fallbacks; their async server

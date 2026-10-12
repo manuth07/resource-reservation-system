@@ -77,6 +77,7 @@ test("every protected page and layout returns a local Suspense boundary before p
     "@/components/ui": { Card: component, PageHeader: component, StatusBadge: component, Button: component, DataTable: component, EmptyState: component },
     "@/components/resource-list": { ResourceList: component }, "@/components/resource-form": { ResourceForm: component },
     "@/components/category-form": { CategoryForm: component }, "@/components/workspace-navigation": { WorkspaceNavigation: component },
+    "@/components/workspace-shell": { WorkspaceShell: component },
     "@/components/employee-management": { EmployeeManagement: component }, "@/components/auth-form": { AuthForm: component },
   };
   for (const path of paths) {

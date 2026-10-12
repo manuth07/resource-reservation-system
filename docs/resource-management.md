@@ -122,6 +122,45 @@ shared the same vertical position and 44px height. The sample fixture was remove
 after QA. TypeScript, full ESLint, tests and webpack build passed; an intermediate
 webpack WASM cache error required clearing only `.next/cache/webpack` and rebuilding.
 
+## Enterprise workspace overhaul
+
+The protected layout keeps its authorization/connection/Suspense boundaries and
+delegates presentation to `WorkspaceShell`. Desktop uses a navy sidebar grouped into
+Workspace / Administration, with role-filtered links, account identity, a compact
+header and bounded content stage. Mobile uses a native Menu disclosure that closes
+on navigation or Escape. Existing account/password/logout actions remain in the
+header account menu. No backend authorization or session behavior changed.
+
+Resource filters and results now share one directory panel, with a real filtered
+result count, compact rows and pagination. No extra queries or invented statistics
+were added. Employee catalogs emphasize comparison and omit Admin controls. Category
+tables expose real resource/request counts in separate columns, with classification
+protection retained; optional descriptions are clamped with full text on Edit.
+Editors group identity, policy/classification and actions within 840px. Dashboard
+shortcuts target existing working pages; unfinished booking features have a compact
+notice rather than an empty decorative card. Loading skeletons match the new shell.
+
+Changed files: protected `layout.tsx`, dashboard, Admin resource/category pages,
+employee resource catalog page; `globals.css`; `workspace-navigation.tsx`, new
+`workspace-shell.tsx`, `resource-list.tsx`, both editor forms, `page-loading.tsx`,
+`ui.tsx`; `tests/rendering.test.mjs`, new `tests/workspace-ui.test.mjs`; and both
+design/resource documentation files. Schema, migrations, services and Server Actions
+are unchanged. Browser QA must distinguish sample presentation fixtures from actual
+authenticated mutation/navigation coverage.
+
+Final validation: standalone TypeScript, full ESLint and the single webpack build
+passed. The automated suite passed 71 tests; two dedicated PostgreSQL tests were
+skipped without a test database. Five new workspace tests cover role-filtered groups,
+mobile Escape/navigation closure, account/skip controls, integrated catalog counts,
+and category usage presentation. The final browser session inspected actual page
+markup/shared components with compiled production CSS and in-memory test records at
+1440×900 and 390×844. Sidebar/header dimensions, fonts, category table, mobile menu,
+sample search result labeling, employee action separation and modal centering were
+checked. Page-level horizontal overflow was absent; tables scroll within their region.
+The temporary fixture was removed. Authenticated Next navigation, logout, form
+validation focus, pending mutations and real-data long-content behavior still require
+manual browser checks; no real account or resource was modified.
+
 ## Server validation and authorization
 
 Services in `src/lib/resource-service.ts` use existing current-database guards.
