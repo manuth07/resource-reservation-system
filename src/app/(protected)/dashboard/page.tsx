@@ -9,7 +9,7 @@ export default async function DashboardPage() {
   const head = user.role === "DEPARTMENT_HEAD";
   return (
     <>
-      <PageHeader section={admin ? "Administration" : head ? "Department workspace" : "Employee workspace"} title="Dashboard" description={`Signed in as ${user.employeeId}. ${admin ? "Manage employee access for your organization." : "Your account is ready to use."}`} />
+      <PageHeader section={admin ? "Administration" : head ? "Department workspace" : "Employee workspace"} title="Dashboard" description={`Signed in as ${user.employeeId}. ${admin ? "Manage employee access for your organization." : "Your account is ready to use."}`} action={<Link className="button button-primary" href={admin ? "/admin/resources" : "/resources"}>{admin ? "Manage resources" : "Browse resources"}</Link>} />
       <div className="space-y-8">
         {admin && (
           <Card className="p-6 sm:p-8">
