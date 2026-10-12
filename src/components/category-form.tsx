@@ -1,14 +1,17 @@
 "use client";
 import { NavigationLink as Link } from "@/components/navigation-link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { saveCategoryAction } from "@/app/resource-actions";
-import { Button, Card, FormField, Input } from "@/components/ui";
+import { Button, Card, Feedback, FormField, Input } from "@/components/ui";
 import type { CategoryRecord, ResourceActionResult } from "@/lib/resource-types";
 import { useSubmissionLock } from "@/components/use-submission-lock";
+import { useValidationFocus } from "@/components/use-validation-focus";
 
 export function CategoryForm({ category }: { category?: CategoryRecord }) {
   const [state, action, pending] = useActionState(saveCategoryAction, {} as ResourceActionResult);
   const submission = useSubmissionLock(pending);
+  const form = useRef<HTMLFormElement>(null);
+  useValidationFocus(form, state.fieldErrors, !pending);
   const [name, setName] = useState(category?.name ?? "");
   const [code, setCode] = useState(category?.code ?? "");
   const [description, setDescription] = useState(category?.description ?? "");
@@ -17,7 +20,7 @@ export function CategoryForm({ category }: { category?: CategoryRecord }) {
   const locked = !!category && (category.resourceCount > 0 || category.reservationCount > 0);
   return <Card className="max-w-3xl p-6 sm:p-8">
     {locked && <p className="feedback feedback-info mb-6">This category is referenced. Its code and classification are protected; its name and description may be edited.</p>}
-    <form action={action} aria-busy={pending} className="space-y-6" onSubmit={(event) => { if (!submission.acquire()) event.preventDefault(); }}>
+    <form ref={form} action={action} aria-busy={pending} className="space-y-6" onSubmit={(event) => { if (!submission.acquire()) event.preventDefault(); }}>
       {category && <><input type="hidden" name="id" value={category.id} /><input type="hidden" name="updatedAt" value={category.updatedAt} /></>}
       <fieldset disabled={pending} className="space-y-6">
         <FormField id="category-name" label="Category name" required error={errors.name}><Input id="category-name" name="name" value={name} onChange={(event) => setName(event.target.value)} required maxLength={100} aria-invalid={!!errors.name} aria-describedby={errors.name ? "category-name-error" : undefined} /></FormField>
@@ -36,7 +39,7 @@ export function CategoryForm({ category }: { category?: CategoryRecord }) {
         {locked && <input type="hidden" name="isVehicle" value={String(vehicle)} />}
         <div className="flex flex-wrap justify-end gap-4"><Link href="/admin/resource-categories" className="button button-secondary">Cancel</Link><Button type="submit" disabled={pending}>{pending ? "Saving…" : category ? "Save category" : "Create category"}</Button></div>
       </fieldset>
-      {state.error && !Object.keys(errors).length && <p role="alert" className="feedback feedback-danger">{state.error}</p>}
+      {state.error && !Object.keys(errors).length && <Feedback tone="danger">{state.error}</Feedback>}
       <p role="status" className="sr-only">{pending ? "Saving category" : ""}</p>
     </form>
   </Card>;

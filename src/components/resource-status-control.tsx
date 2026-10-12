@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { setResourceActiveAction } from "@/app/resource-actions";
-import { Button } from "@/components/ui";
+import { Button, Feedback } from "@/components/ui";
 import { ConfirmationDialog, resourceDeactivationDescription } from "@/components/confirmation-dialog";
 import type { ResourceRecord } from "@/lib/resource-types";
 import { useSubmissionLock } from "@/components/use-submission-lock";
@@ -26,8 +26,8 @@ export function ResourceStatusControl({ resource }: { resource: Pick<ResourceRec
   return <div className="max-w-64 space-y-2" aria-busy={pending}>
     <Button type="button" variant="secondary" className="whitespace-nowrap" disabled={pending} aria-label={`${resource.isActive ? "Deactivate" : "Activate"} ${resource.name}`} onClick={() => { if (resource.isActive) { setMessage({}); setOpen(true); } else updateStatus(); }}>{pending ? "Updating…" : resource.isActive ? "Deactivate" : "Activate"}</Button>
     <span role="status" className="sr-only">{pending ? "Updating resource status…" : ""}</span>
-    {message.error && !open && <p role="alert" className="text-danger text-xs">{message.error}</p>}
-    {message.success && <p role="status" className="text-success text-xs">{message.success}</p>}
-    <ConfirmationDialog open={open} title={`Deactivate ${resource.name}?`} description={resourceDeactivationDescription} confirmLabel="Deactivate" pending={pending} error={message.error} onCancel={() => setOpen(false)} onConfirm={updateStatus} />
+    {message.error && !open && <Feedback tone="danger">{message.error}</Feedback>}
+    {message.success && <Feedback tone="success">{message.success}</Feedback>}
+    <ConfirmationDialog open={open} title={`Deactivate ${resource.name}?`} description={resourceDeactivationDescription} confirmLabel="Deactivate resource" pending={pending} error={message.error} onCancel={() => setOpen(false)} onConfirm={updateStatus} />
   </div>;
 }

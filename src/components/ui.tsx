@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, ReactNode } from "react";
 
-export function Button({ variant = "primary", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
+export function Button({ variant = "primary", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "neutral" | "danger" }) {
   return <button className={`button button-${variant} ${className}`} {...props} />;
 }
 
@@ -40,9 +40,13 @@ export function PageHeader({ title, description, section, action }: { title: str
   );
 }
 
-export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral";
-export function StatusBadge({ children, tone = "neutral" }: { children: ReactNode; tone?: StatusTone }) {
-  return <span className={`status-badge status-${tone}`}>{children}</span>;
+export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral" | "accent";
+export function StatusBadge({ children, tone = "neutral", subtle = false }: { children: ReactNode; tone?: StatusTone; subtle?: boolean }) {
+  return <span className={`status-badge status-${tone}${subtle ? " status-subtle" : ""}`}>{children}</span>;
+}
+
+export function Feedback({ children, tone = "info", className = "" }: { children: ReactNode; tone?: "success" | "danger" | "warning" | "info"; className?: string }) {
+  return <p role={tone === "danger" ? "alert" : "status"} className={`feedback-compact feedback-${tone} ${className}`}>{children}</p>;
 }
 
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
@@ -59,10 +63,10 @@ export function LoadingState({ message = "Loading workspace…" }: { message?: s
   return <p role="status" aria-live="polite" className="p-8 text-secondary">{message}</p>;
 }
 
-export function DataTable({ label, children }: { label: string; children: ReactNode }) {
+export function DataTable({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
     <div className="table-scroll" role="region" aria-label={label} tabIndex={0}>
-      <table className="data-table"><caption className="sr-only">{label}</caption>{children}</table>
+      <table className={`data-table ${className}`}><caption className="sr-only">{label}</caption>{children}</table>
     </div>
   );
 }

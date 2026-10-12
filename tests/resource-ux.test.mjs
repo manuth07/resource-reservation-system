@@ -35,6 +35,7 @@ function forms(result = {}, pending = false) {
     "@/app/resource-actions": { saveCategoryAction: () => {}, saveResourceAction: () => {} },
     "@/components/use-submission-lock": { useSubmissionLock: () => ({ acquire: () => true, release: () => {} }) },
     "@/components/confirmation-dialog": dialog,
+    "@/components/use-validation-focus": { useValidationFocus() {} },
   };
   return {
     ...loadSource("src/components/category-form.tsx", mocks),
@@ -83,20 +84,23 @@ test("native dialog focuses Cancel, restores focus, supports Escape and prevents
   class Element { isConnected = true; focused = false; focus() { this.focused = true; } }
   const previous = new Element(); const cancel = new Element();
   const native = { opened: false, showModal() { this.opened = true; }, close() { this.opened = false; } };
+  const body = { style: { overflow: "auto" } };
   let effect; let refs = 0; let cancelled = 0;
   const { ConfirmationDialog } = loadSource("src/components/confirmation-dialog.tsx", {
     react: { useId: () => "confirm", useRef: () => ({ current: refs++ === 0 ? native : cancel }), useEffect: (fn) => { effect = fn; } },
     "react/jsx-runtime": jsxRuntime, "@/components/ui": ui,
-  }, undefined, { document: { activeElement: previous }, HTMLElement: Element });
+  }, undefined, { document: { activeElement: previous, body }, HTMLElement: Element });
   const props = { open: true, title: "Deactivate Van A?", description: "History is preserved.", confirmLabel: "Deactivate", onCancel: () => { cancelled++; }, onConfirm: () => {} };
   const element = ConfirmationDialog(props);
   const cleanup = effect();
   assert.equal(native.opened, true); assert.equal(cancel.focused, true);
+  assert.equal(body.style.overflow, "hidden");
   assert.equal(element.type, "dialog"); assert.equal(element.props["aria-labelledby"], "confirm-title");
   let prevented = false;
   element.props.onCancel({ preventDefault() { prevented = true; } });
   assert.equal(prevented, true); assert.equal(cancelled, 1);
   cleanup(); assert.equal(native.opened, false); assert.equal(previous.focused, true);
+  assert.equal(body.style.overflow, "auto");
   refs = 0;
   const busy = ConfirmationDialog({ ...props, pending: true });
   busy.props.onCancel({ preventDefault() {} });
@@ -121,10 +125,31 @@ test("vehicle catalog and details omit location; table actions keep native keybo
   const html = renderToStaticMarkup(await ResourceList({ searchParams: {}, admin: true }));
   assert.doesNotMatch(html, /Location not specified/);
   assert.match(html, /md:flex-nowrap/); assert.match(html, /role="region"[^>]*tabindex="0"/);
+  assert.match(html, /status-warning/); assert.match(html, /status-success/); assert.match(html, /status-subtle/);
+  assert.match(html, /button-neutral/); assert.match(html, /text-foreground font-semibold/);
   assert.equal((html.match(/class="select-control"/g) ?? []).length, 2);
   const page = loadSource("src/app/(protected)/resources/[id]/page.tsx", mocks).default({ params: Promise.resolve({ id: resourceId }) });
   const content = await page.props.children.type(page.props.children.props);
   assert.doesNotMatch(renderToStaticMarkup(content), />Location</);
+});
+
+test("validation focus waits for pending/modal completion and skips hidden or disabled controls", () => {
+  let effect; let calls = 0; let focused = 0;
+  const { useValidationFocus } = loadSource("src/components/use-validation-focus.ts", { react: { useEffect: (callback) => { effect = callback; } } });
+  const form = { current: { querySelector(selector) { calls++; assert.match(selector, /:not\(:disabled\)/); assert.match(selector, /:not\(\[type="hidden"\]\)/); return { focus() { focused++; } }; } } };
+  useValidationFocus(form, { resourceCode: "Duplicate code" }, false); effect(); assert.equal(calls, 0);
+  useValidationFocus(form, undefined, true); effect(); assert.equal(calls, 0);
+  useValidationFocus(form, {}, true); effect(); assert.equal(calls, 0);
+  useValidationFocus(form, { resourceCode: "Duplicate code" }, true); effect(); assert.equal(focused, 1);
+});
+
+test("compact feedback uses accessible roles and neutral buttons retain shared disabled semantics", () => {
+  const success = renderToStaticMarkup(React.createElement(ui.Feedback, { tone: "success" }, "Resource saved successfully."));
+  const failure = renderToStaticMarkup(React.createElement(ui.Feedback, { tone: "danger" }, "Reload and retry."));
+  assert.match(success, /role="status"/); assert.match(success, /feedback-compact/);
+  assert.match(failure, /role="alert"/);
+  const button = renderToStaticMarkup(React.createElement(ui.Button, { variant: "neutral", disabled: true, type: "button" }, "Edit"));
+  assert.match(button, /button-neutral/); assert.match(button, /disabled=""/);
 });
 
 test("typed form values survive a simulated validation response; edit deactivation requires confirmation and suppresses duplicate submits", () => {
@@ -134,6 +159,7 @@ test("typed form values survive a simulated validation response; edit deactivati
     "react/jsx-runtime": jsxRuntime, "@/components/ui": ui, "@/components/confirmation-dialog": dialog,
     "@/components/navigation-link": { NavigationLink: () => null }, "@/app/resource-actions": { saveResourceAction: () => {} },
     "@/components/use-submission-lock": { useSubmissionLock: () => harness.lock },
+    "@/components/use-validation-focus": { useValidationFocus() {} },
   });
   const props = { resource, categories: [category] };
   let tree = harness.render(ResourceForm, props);

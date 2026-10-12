@@ -21,6 +21,8 @@
   --input: #ffffff;
   --table-header: #edf1f6;
   --navigation-selected: #e5f3f1;
+  --modal-backdrop: rgb(7 17 38 / 60%);
+  --modal-shadow: 0 12px 32px rgb(7 17 38 / 16%);
   --success: #176544;
   --success-surface: #edf7f0;
   --warning: #78520d;
@@ -76,8 +78,6 @@
   .field:focus { border-color: var(--focus); }
   .select-control { position: relative; }
   .select-control > select { appearance: none; padding-right: 40px; }
-  .confirmation-dialog { width: calc(100% - 32px); max-width: 448px; max-height: calc(100dvh - 32px); margin: auto; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; padding: 24px; background: var(--surface); color: var(--foreground); }
-  .confirmation-dialog::backdrop { background: var(--foreground); opacity: 0.5; }
   .field:disabled { background: var(--disabled); color: var(--disabled-foreground); }
   .field::placeholder { color: var(--muted); }
   .field[aria-invalid="true"] { border-color: var(--danger); }
@@ -87,24 +87,34 @@
   .button-primary:active:not(:disabled) { background: var(--primary-active); }
   .button-secondary { background: var(--surface); border-color: var(--control-border); color: var(--foreground); }
   .button-secondary:hover:not(:disabled) { background: var(--table-header); }
+  .button-neutral { background: var(--table-header); border-color: var(--control-border); color: var(--secondary); font-weight: 500; }
+  .button-neutral:hover:not(:disabled) { background: var(--border); color: var(--foreground); }
+  .button-neutral:active:not(:disabled) { background: var(--disabled); }
   .button-danger { background: var(--danger); color: var(--on-primary); }
   .button-danger:hover:not(:disabled) { background: var(--danger-hover); }
   .button:disabled { background: var(--disabled); border-color: var(--border); color: var(--disabled-foreground); }
   .text-link { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
   .text-link:hover { color: var(--primary-hover); }
-  .status-badge { display: inline-flex; border: 1px solid currentColor; border-radius: 2px; padding: 0 8px; font-size: 12px; font-weight: 500; line-height: 24px; }
+  .status-badge { display: inline-flex; align-items: center; border: 1px solid currentColor; border-radius: 2px; padding: 0 8px; font-size: 12px; font-weight: 500; line-height: 22px; }
+  .status-subtle { border-color: var(--border); }
+  .status-accent { color: var(--primary-active); background: var(--navigation-selected); }
   .status-success, .feedback-success { color: var(--success); background: var(--success-surface); }
   .status-warning, .feedback-warning { color: var(--warning); background: var(--warning-surface); }
   .status-danger, .feedback-danger { color: var(--danger); background: var(--danger-surface); }
   .status-info, .feedback-info { color: var(--info); background: var(--info-surface); }
   .status-neutral { color: var(--secondary); background: var(--table-header); }
   .feedback { border: 1px solid currentColor; border-radius: 0; padding: 16px; font-size: 14px; }
+  .feedback-compact { border-inline-start: 3px solid currentColor; padding: 8px 12px; font-size: 14px; }
   .empty-state { padding: 32px; text-align: center; }
-  .table-scroll { overflow-x: auto; }
+  .table-scroll { position: relative; overflow-x: auto; }
   .data-table { width: 100%; min-width: 640px; border-collapse: collapse; text-align: left; font-size: 14px; font-variant-numeric: tabular-nums; }
-  .data-table thead { background: var(--table-header); color: var(--secondary); }
+  .data-table thead { background: var(--table-header); color: var(--foreground); }
   .data-table th { padding: 16px 24px; font-weight: 600; }
   .data-table td { padding: 16px 24px; vertical-align: top; }
+  .resource-table td { vertical-align: middle; }
+  .resource-table td:first-child { min-width: 176px; }
+  .resource-table td:nth-child(3) { min-width: 176px; }
+  .resource-table td:nth-child(4) { min-width: 160px; }
   .data-table tr { border-top: 1px solid var(--border); }
   .data-table tbody tr:hover { background: var(--background); }
   .app-header { @apply flex flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-4 sm:px-8; }
@@ -121,3 +131,8 @@
   .skip-link { position: fixed; top: -100px; left: 16px; z-index: 20; padding: 8px 16px; background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
   .skip-link:focus { top: 16px; }
 }
+
+/* Keep modal geometry outside utility layers: ancestor space-y rules must not
+   replace its auto margins. showModal() supplies the browser top layer. */
+dialog.confirmation-dialog { position: fixed; inset: 0; width: min(480px, calc(100% - 32px)); height: fit-content; max-width: none; max-height: calc(100dvh - 32px); margin: auto; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; padding: 24px; background: var(--surface); color: var(--foreground); font-family: var(--font-body-face), Arial, sans-serif; box-shadow: var(--modal-shadow); }
+.confirmation-dialog::backdrop { background: var(--modal-backdrop); backdrop-filter: blur(2px); }

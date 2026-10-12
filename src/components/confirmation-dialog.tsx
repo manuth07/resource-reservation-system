@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
-import { Button } from "@/components/ui";
+import { Button, Feedback } from "@/components/ui";
 
 export function ConfirmationDialog({ open, title, description, confirmLabel, pending = false, error, onCancel, onConfirm }: {
   open: boolean; title: string; description: string; confirmLabel: string;
@@ -14,18 +14,21 @@ export function ConfirmationDialog({ open, title, description, confirmLabel, pen
     const element = dialog.current;
     if (!element || !open) return;
     const previous = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
     element.showModal(); // Native modal focus containment and background inertness.
+    document.body.style.overflow = "hidden";
     cancel.current?.focus();
     return () => {
       element.close();
+      document.body.style.overflow = previousOverflow;
       if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
     };
   }, [open]);
   return <dialog ref={dialog} className="confirmation-dialog" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} aria-busy={pending} onCancel={(event) => { event.preventDefault(); if (!pending) onCancel(); }}>
     <h2 id={`${id}-title`} className="section-title">{title}</h2>
     <p id={`${id}-description`} className="mt-4 text-secondary">{description}</p>
-    {error && <p role="alert" className="feedback feedback-danger mt-4">{error}</p>}
-    <p role="status" className="mt-4 text-secondary">{pending ? "Deactivation in progress. Please wait." : ""}</p>
+    {error && <Feedback tone="danger" className="mt-4">{error}</Feedback>}
+    <p role="status" className={pending ? "mt-4 text-secondary" : "sr-only"}>{pending ? "Deactivation in progress. Please wait." : ""}</p>
     <div className="mt-6 flex flex-wrap justify-end gap-4">
       <button ref={cancel} type="button" className="button button-secondary" disabled={pending} onClick={onCancel}>Cancel</button>
       <Button type="button" variant="danger" disabled={pending} onClick={onConfirm}>{pending ? "Deactivating…" : confirmLabel}</Button>

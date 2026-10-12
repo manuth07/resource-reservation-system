@@ -2,10 +2,11 @@
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveResourceAction } from "@/app/resource-actions";
-import { Button, Card, FormField, Input, Select } from "@/components/ui";
+import { Button, Card, Feedback, FormField, Input, Select } from "@/components/ui";
 import { ConfirmationDialog, resourceDeactivationDescription } from "@/components/confirmation-dialog";
 import type { ResourceActionResult, ResourceCategoryOption, ResourceRecord } from "@/lib/resource-types";
 import { useSubmissionLock } from "@/components/use-submission-lock";
+import { useValidationFocus } from "@/components/use-validation-focus";
 
 export function ResourceForm({ categories, resource, policyLocked = false }: { categories: ResourceCategoryOption[]; resource?: ResourceRecord; policyLocked?: boolean }) {
   const [state, action, pending] = useActionState(saveResourceAction, {} as ResourceActionResult);
@@ -14,6 +15,7 @@ export function ResourceForm({ categories, resource, policyLocked = false }: { c
   const confirmed = useRef(false);
   const wasPending = useRef(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  useValidationFocus(form, state.fieldErrors, !pending && !confirmOpen);
   const [name, setName] = useState(resource?.name ?? "");
   const [code, setCode] = useState(resource?.resourceCode ?? "");
   const [capacity, setCapacity] = useState(String(resource?.capacity ?? ""));
@@ -61,7 +63,7 @@ export function ResourceForm({ categories, resource, policyLocked = false }: { c
         </div>
         <div className="flex flex-wrap justify-end gap-4 sm:col-span-2"><Link href="/admin/resources" className="button button-secondary">Cancel</Link><Button type="submit" disabled={pending}>{pending ? "Saving…" : resource ? "Save resource" : "Create resource"}</Button></div>
       </fieldset>
-      {state.error && (!Object.keys(errors).length || (vehicle && errors.location)) && <p role="alert" className="feedback feedback-danger">{state.error}</p>}
+      {state.error && (!Object.keys(errors).length || (vehicle && errors.location)) && <Feedback tone="danger">{state.error}</Feedback>}
       <p role="status" className="sr-only">{pending ? "Saving resource" : ""}</p>
     </form>
     <ConfirmationDialog open={confirmOpen} title={`Deactivate ${resource?.name ?? "resource"}?`} description={`${resourceDeactivationDescription} Other form changes will also be saved.`} confirmLabel="Deactivate and save" pending={pending} onCancel={() => { confirmed.current = false; setConfirmOpen(false); }} onConfirm={() => { confirmed.current = true; form.current?.requestSubmit(); }} />

@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { UserRole } from "@/generated/prisma/enums";
 import { requirePageUser } from "@/lib/page-auth";
 import { listCategories } from "@/lib/resource-service";
-import { Card, DataTable, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
+import { Card, DataTable, EmptyState, Feedback, PageHeader, StatusBadge } from "@/components/ui";
 import { Suspense } from "react";
 import { PageLoading } from "@/components/page-loading";
 
@@ -14,5 +14,18 @@ export default function CategoriesPage(props: Props) {
 async function CategoriesContent({ searchParams }: Props) {
   await connection(); await requirePageUser(UserRole.ADMIN);
   const [categories, params] = await Promise.all([listCategories(), searchParams]);
-  return <><PageHeader section="Administration" title="Resource categories" description="Classify resources and preserve vehicle workflow information." action={<Link className="button button-primary" href="/admin/resource-categories/new">Create category</Link>} />{params.saved === "1" && <p role="status" className="feedback feedback-success mb-6">Category saved successfully.</p>}<Card>{!categories.length ? <EmptyState title="No resource categories" description="Create a category such as Meeting Rooms or Vans before adding resources." /> : <DataTable label="Resource categories"><thead><tr><th scope="col">Category</th><th scope="col">Classification</th><th scope="col">Usage</th><th scope="col">Actions</th></tr></thead><tbody>{categories.map((category) => <tr key={category.id}><td><p className="font-medium">{category.name}</p><p className="supporting-text mt-2">{category.code}</p>{category.description && <p className="mt-2 max-w-sm whitespace-pre-wrap break-words text-secondary">{category.description}</p>}</td><td><StatusBadge tone={category.isVehicle ? "info" : "neutral"}>{category.isVehicle ? "Vehicle" : "Non-vehicle"}</StatusBadge></td><td className="tabular-nums"><p>{category.resourceCount} resources</p><p className="supporting-text mt-2">{category.reservationCount} requests</p><p className="supporting-text">{category.resourceCount || category.reservationCount ? "Classification protected" : "Not yet referenced"}</p></td><td><Link className="text-link" href={`/admin/resource-categories/${category.id}/edit`}>Edit <span className="sr-only">{category.name}</span></Link></td></tr>)}</tbody></DataTable>}</Card><p className="supporting-text mt-6">Categories are retained to protect resource and reservation relationships. There is no category deletion operation.</p></>;
+  return <>
+    <PageHeader section="Administration" title="Resource categories" description="Classify resources and preserve vehicle workflow information." action={<Link className="button button-primary" href="/admin/resource-categories/new">Create category</Link>} />
+    {params.saved === "1" && <Feedback tone="success" className="mb-6">Category saved successfully.</Feedback>}
+    <Card>{!categories.length ? <EmptyState title="No resource categories" description="Create a category such as Meeting Rooms or Vans before adding resources." /> : <DataTable label="Resource categories">
+      <thead><tr><th scope="col">Category</th><th scope="col">Classification</th><th scope="col">Usage</th><th scope="col">Actions</th></tr></thead>
+      <tbody>{categories.map((category) => <tr key={category.id}>
+        <td><p className="font-semibold">{category.name}</p><p className="supporting-text mt-2">{category.code}</p>{category.description && <p className="mt-2 max-w-sm whitespace-pre-wrap break-words text-secondary">{category.description}</p>}</td>
+        <td><StatusBadge subtle>{category.isVehicle ? "Vehicle / Transport" : "Standard resource"}</StatusBadge></td>
+        <td className="tabular-nums"><p>{category.resourceCount} resources</p><p className="supporting-text mt-2">{category.reservationCount} requests</p><p className="supporting-text">{category.resourceCount || category.reservationCount ? "Classification protected" : "Not yet referenced"}</p></td>
+        <td><Link className="button button-neutral whitespace-nowrap" href={`/admin/resource-categories/${category.id}/edit`}>Edit <span className="sr-only">{category.name}</span></Link></td>
+      </tr>)}</tbody>
+    </DataTable>}</Card>
+    <p className="supporting-text mt-6">Categories are retained to protect resource and reservation relationships. There is no category deletion operation.</p>
+  </>;
 }
