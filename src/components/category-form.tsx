@@ -18,15 +18,18 @@ export function CategoryForm({ category }: { category?: CategoryRecord }) {
   const [vehicle, setVehicle] = useState(category?.isVehicle ?? false);
   const errors = state.fieldErrors ?? {};
   const locked = !!category && (category.resourceCount > 0 || category.reservationCount > 0);
-  return <Card className="max-w-3xl p-6 sm:p-8">
-    {locked && <p className="feedback feedback-info mb-6">This category is referenced. Its code and classification are protected; its name and description may be edited.</p>}
-    <form ref={form} action={action} aria-busy={pending} className="space-y-6" onSubmit={(event) => { if (!submission.acquire()) event.preventDefault(); }}>
+  return <Card className="resource-editor">
+    <div className="editor-heading"><h2 className="card-title">Category details</h2><p className="supporting-text mt-1">Define the category and how employees request its resources.</p></div>
+    {locked && <Feedback tone="info" className="mb-4">This category is referenced. Its code and classification are protected; its name and description may be edited.</Feedback>}
+    <form ref={form} action={action} aria-busy={pending} className="space-y-5" onSubmit={(event) => { if (!submission.acquire()) event.preventDefault(); }}>
       {category && <><input type="hidden" name="id" value={category.id} /><input type="hidden" name="updatedAt" value={category.updatedAt} /></>}
-      <fieldset disabled={pending} className="space-y-6">
+      <fieldset disabled={pending} className="space-y-5">
+        <div className="grid gap-5 sm:grid-cols-2">
         <FormField id="category-name" label="Category name" required error={errors.name}><Input id="category-name" name="name" value={name} onChange={(event) => setName(event.target.value)} required maxLength={100} aria-invalid={!!errors.name} aria-describedby={errors.name ? "category-name-error" : undefined} /></FormField>
         <FormField id="category-code" label="Category code" required hint="2–64 letters, numbers, hyphens or underscores." error={errors.code}><Input id="category-code" name="code" value={code} onChange={(event) => setCode(event.target.value)} readOnly={locked} required minLength={2} maxLength={64} pattern={"[A-Za-z0-9][A-Za-z0-9_\\-]{1,63}"} aria-invalid={!!errors.code} aria-describedby={`category-code-hint${errors.code ? " category-code-error" : ""}`} /></FormField>
-        <FormField id="category-description" label="Description (optional)" error={errors.description}><textarea id="category-description" name="description" className="field" rows={4} maxLength={2000} value={description} onChange={(event) => setDescription(event.target.value)} aria-invalid={!!errors.description} aria-describedby={errors.description ? "category-description-error" : undefined} /></FormField>
-        <fieldset disabled={locked} aria-describedby="classification-help" className="space-y-4">
+        </div>
+        <FormField id="category-description" label="Description (optional)" error={errors.description}><textarea id="category-description" name="description" className="field" rows={3} maxLength={2000} value={description} onChange={(event) => setDescription(event.target.value)} aria-invalid={!!errors.description} aria-describedby={errors.description ? "category-description-error" : undefined} /></FormField>
+        <fieldset disabled={locked} aria-describedby="classification-help" className="editor-section space-y-4">
           <legend className="form-label mb-2">Resource classification <span className="supporting-text">(required)</span></legend>
           <p id="classification-help" className="text-sm text-secondary">Classification determines the booking flow. Approval is configured separately per resource; standard resources may also require Department Head approval.</p>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -37,7 +40,7 @@ export function CategoryForm({ category }: { category?: CategoryRecord }) {
           </div>
         </fieldset>
         {locked && <input type="hidden" name="isVehicle" value={String(vehicle)} />}
-        <div className="flex flex-wrap justify-end gap-4"><Link href="/admin/resource-categories" className="button button-secondary">Cancel</Link><Button type="submit" disabled={pending}>{pending ? "Saving…" : category ? "Save category" : "Create category"}</Button></div>
+        <div className="editor-actions"><Link href="/admin/resource-categories" className="button button-secondary">Cancel</Link><Button type="submit" disabled={pending}>{pending ? "Saving…" : category ? "Save category" : "Create category"}</Button></div>
       </fieldset>
       {state.error && !Object.keys(errors).length && <Feedback tone="danger">{state.error}</Feedback>}
       <p role="status" className="sr-only">{pending ? "Saving category" : ""}</p>
