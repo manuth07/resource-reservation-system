@@ -1,11 +1,16 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { connection } from "next/server";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { WorkspaceLoading, PageLoading } from "@/components/page-loading";
 import { requirePageUser } from "@/lib/page-auth";
 import { logoutAction } from "@/app/auth-actions";
 import { WorkspaceNavigation } from "@/components/workspace-navigation";
 import { Button } from "@/components/ui";
-export default async function ProtectedLayout({ children }: { children: ReactNode }) {
+export default function ProtectedLayout({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<WorkspaceLoading />}><ProtectedWorkspace>{children}</ProtectedWorkspace></Suspense>;
+}
+
+async function ProtectedWorkspace({ children }: { children: ReactNode }) {
   await connection();
   const user = await requirePageUser();
   return (
@@ -24,7 +29,7 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
       </header>
       <div className="app-body">
         <WorkspaceNavigation isAdmin={user.role === "ADMIN"} />
-        <main id="workspace-main" tabIndex={-1} className="workspace-content">{children}</main>
+        <main id="workspace-main" tabIndex={-1} className="workspace-content"><Suspense fallback={<PageLoading />}>{children}</Suspense></main>
       </div>
     </div>
   );

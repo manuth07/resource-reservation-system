@@ -1,8 +1,13 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { connection } from "next/server";
 import { requirePageUser } from "@/lib/page-auth";
 import { Card, PageHeader, StatusBadge } from "@/components/ui";
-export default async function DashboardPage() {
+import { Suspense } from "react";
+import { PageLoading } from "@/components/page-loading";
+export default function DashboardPage() {
+  return <Suspense fallback={<PageLoading title="Dashboard" variant="detail" />}><DashboardContent /></Suspense>;
+}
+async function DashboardContent() {
   await connection();
   const user = await requirePageUser();
   const admin = user.role === "ADMIN";

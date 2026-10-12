@@ -3,8 +3,14 @@ import { connection } from "next/server";
 import { getAuthenticatedUser } from "@/lib/authorization";
 import { AuthForm } from "@/components/auth-form";
 import { Card, PageHeader } from "@/components/ui";
+import { Suspense } from "react";
+import { AccountLoading } from "@/components/page-loading";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+export default function LoginPage(props: Props) {
+  return <Suspense fallback={<AccountLoading title="Sign in" />}><LoginContent {...props} /></Suspense>;
+}
+async function LoginContent({ searchParams }: Props) {
   await connection();
   const user = await getAuthenticatedUser();
   if (user) redirect(user.mustChangePassword ? "/change-password" : "/dashboard");

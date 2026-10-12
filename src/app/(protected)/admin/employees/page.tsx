@@ -4,7 +4,12 @@ import { UserRole } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { EmployeeManagement } from "@/components/employee-management";
 import { PageHeader } from "@/components/ui";
-export default async function EmployeesPage() {
+import { Suspense } from "react";
+import { PageLoading } from "@/components/page-loading";
+export default function EmployeesPage() {
+  return <Suspense fallback={<PageLoading title="Employees and access" />}><EmployeesContent /></Suspense>;
+}
+async function EmployeesContent() {
   await connection();
   await requirePageUser(UserRole.ADMIN);
   const [departments, employees] = await Promise.all([

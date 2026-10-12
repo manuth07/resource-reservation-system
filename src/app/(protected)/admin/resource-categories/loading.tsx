@@ -1,2 +1,2 @@
-import { LoadingState } from "@/components/ui";
-export default function Loading() { return <LoadingState message="Loading resource categories…" />; }
+import { PageLoading } from "@/components/page-loading";
+export default function Loading() { return <PageLoading title="Resource categories" />; }

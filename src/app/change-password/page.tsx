@@ -4,7 +4,12 @@ import { getAuthenticatedUser } from "@/lib/authorization";
 import { logoutAction } from "@/app/auth-actions";
 import { AuthForm } from "@/components/auth-form";
 import { Button, Card, PageHeader } from "@/components/ui";
-export default async function ChangePasswordPage() {
+import { Suspense } from "react";
+import { AccountLoading } from "@/components/page-loading";
+export default function ChangePasswordPage() {
+  return <Suspense fallback={<AccountLoading title="Change your password" />}><ChangePasswordContent /></Suspense>;
+}
+async function ChangePasswordContent() {
   await connection();
   const user = await getAuthenticatedUser();
   if (!user) redirect("/login");

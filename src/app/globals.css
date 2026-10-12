@@ -74,6 +74,10 @@
   .panel { border: 1px solid var(--border); background: var(--surface); border-radius: 0; }
   .field { width: 100%; min-height: 44px; border: 1px solid var(--control-border); border-radius: 4px; padding: 8px 16px; background: var(--input); color: var(--foreground); font-size: 14px; }
   .field:focus { border-color: var(--focus); }
+  .select-control { position: relative; }
+  .select-control > select { appearance: none; padding-right: 40px; }
+  .confirmation-dialog { width: calc(100% - 32px); max-width: 448px; max-height: calc(100dvh - 32px); margin: auto; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; padding: 24px; background: var(--surface); color: var(--foreground); }
+  .confirmation-dialog::backdrop { background: var(--foreground); opacity: 0.5; }
   .field:disabled { background: var(--disabled); color: var(--disabled-foreground); }
   .field::placeholder { color: var(--muted); }
   .field[aria-invalid="true"] { border-color: var(--danger); }

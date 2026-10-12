@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, ReactNode } from "react";
 
 export function Button({ variant = "primary", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
   return <button className={`button button-${variant} ${className}`} {...props} />;
@@ -8,12 +8,17 @@ export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInpu
   return <input className={`field ${className}`} {...props} />;
 }
 
-export function FormField({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
+export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <div className="select-control"><select className={`field ${className}`} {...props} /><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-secondary" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></div>;
+}
+
+export function FormField({ id, label, hint, error, required, children }: { id: string; label: string; hint?: string; error?: string; required?: boolean; children: ReactNode }) {
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="form-label">{label}</label>
+      <label htmlFor={id} className="form-label">{label}{required && <span className="supporting-text"> (required)</span>}</label>
       {children}
       {hint && <p id={`${id}-hint`} className="supporting-text">{hint}</p>}
+      {error && <p id={`${id}-error`} role="alert" className="text-sm text-danger">{error}</p>}
     </div>
   );
 }

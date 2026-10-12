@@ -5,8 +5,14 @@ import { requirePageUser } from "@/lib/page-auth";
 import { getResourceForEdit, listCategoryOptions } from "@/lib/resource-service";
 import { PageHeader } from "@/components/ui";
 import { ResourceForm } from "@/components/resource-form";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/page-loading";
 
-export default async function EditResourcePage({ params }: { params: Promise<{ id: string }> }) {
+type Props = { params: Promise<{ id: string }> };
+export default function EditResourcePage(props: Props) {
+  return <Suspense fallback={<PageLoading title="Edit resource" variant="form" />}><EditResourceContent {...props} /></Suspense>;
+}
+async function EditResourceContent({ params }: Props) {
   await connection(); await requirePageUser(UserRole.ADMIN);
   const [record, categories] = await Promise.all([getResourceForEdit((await params).id), listCategoryOptions()]);
   if (!record) notFound();
