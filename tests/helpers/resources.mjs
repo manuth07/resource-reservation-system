@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { loadSource } from "./source.mjs";
+import * as React from "react";
 
 export const resourceEnums = loadSource("src/generated/prisma/enums.ts", {});
 export const resourceValidation = loadSource("src/lib/resource-validation.ts", {});
@@ -93,7 +94,7 @@ export function resourceFixture(options = {}) {
       return operation;
     },
   };
-  const authorization = loadSource("src/lib/authorization.ts", { "@/auth": { auth: async () => session }, "@/generated/prisma/enums": resourceEnums, "@/lib/prisma": { prisma: client } });
+  const authorization = loadSource("src/lib/authorization.ts", { react: React, "@/auth": { auth: async () => session }, "@/generated/prisma/enums": resourceEnums, "@/lib/prisma": { prisma: client } });
   const service = resourceServiceFor(client, authorization, async () => { if (limited) throw new Error("Rate limited"); });
   return { service, client, authorization, trace, state: () => state, session: (value) => { session = value; }, limit: () => { limited = true; } };
 }

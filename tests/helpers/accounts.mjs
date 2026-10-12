@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as argon2 from "argon2";
 import * as crypto from "node:crypto";
 import { loadSource } from "./source.mjs";
+import * as React from "react";
 
 export const enums = loadSource("src/generated/prisma/enums.ts", {});
 export const passwords = loadSource("src/lib/passwords.ts", { argon2, "node:crypto": crypto });
@@ -68,6 +69,7 @@ export function accountFixture(options = {}) {
     },
   };
   const authorization = loadSource("src/lib/authorization.ts", {
+    react: React,
     "@/auth": { auth: async () => session }, "@/generated/prisma/enums": enums, "@/lib/prisma": { prisma: client },
   });
   const service = serviceFor(client, authorization, async () => { if (blocked) throw new Error("Rate limited"); });

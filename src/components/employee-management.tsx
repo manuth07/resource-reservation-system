@@ -4,14 +4,17 @@ import { useRouter } from "next/navigation";
 import { createEmployeeAction, resetEmployeeAction } from "@/app/auth-actions";
 import type { ActionResult } from "@/lib/action-result";
 import { Button, Card, DataTable, EmptyState, FormField, Input, StatusBadge } from "@/components/ui";
+import { useSubmissionLock } from "@/components/use-submission-lock";
 
 type Employee = { id: string; employeeId: string; name: string; email: string; role: string; accountStatus: string; department: { name: string } };
 export function EmployeeManagement({ departments, employees }: { departments: { id: string; name: string }[]; employees: Employee[] }) {
   const [result, setResult] = useState<ActionResult | null>(null);
   const [pending, startTransition] = useTransition();
+  const submission = useSubmissionLock(pending);
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
   function submit(data: FormData, reset = false) {
+    if (!submission.acquire()) return;
     setResult(null); // Never send a previous temporary password back to the server.
     startTransition(async () => {
       try {

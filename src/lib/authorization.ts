@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 
 import { auth } from "@/auth";
 import { AccountStatus, type UserRole } from "@/generated/prisma/enums";
@@ -15,8 +16,10 @@ export class AuthorizationError extends Error {
 }
 
 // Identity lookup only: this does NOT authorize normal application access.
-// Deliberately uncached so each operation checks current PostgreSQL state.
-export async function getAuthenticatedUser() {
+// React.cache deduplicates within one Server Component render only. It is not a
+// shared Next data cache. New requests, actions and handlers still check PostgreSQL;
+// sensitive mutations additionally recheck current account state inside their transaction.
+export const getAuthenticatedUser = cache(async () => {
   const session = await auth();
   if (!session?.user?.id || !Number.isSafeInteger(session.user.sessionVersion) || session.user.sessionVersion < 0) return null;
 
@@ -34,7 +37,7 @@ export async function getAuthenticatedUser() {
   });
 
   return user?.accountStatus === AccountStatus.ACTIVE && user.sessionVersion === session.user.sessionVersion ? user : null;
-}
+});
 
 // Required entry point for ALL normal protected pages, actions, and services.
 export async function requireAuthenticatedUser() {

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { NavigationLink } from "@/components/navigation-link";
 import { usePathname } from "next/navigation";
 
 export function WorkspaceNavigation({ isAdmin }: { isAdmin: boolean }) {
@@ -15,7 +15,7 @@ export function WorkspaceNavigation({ isAdmin }: { isAdmin: boolean }) {
       <ul className="flex flex-wrap gap-2 md:block md:space-y-2">
         {items.map((item) => (
           <li key={item.href}>
-            <Link className="nav-link" href={item.href} aria-current={current(item.href) ? "page" : undefined}>{item.label}</Link>
+            <NavigationLink className="nav-link flex items-center justify-between gap-2" href={item.href} aria-current={current(item.href) ? "page" : undefined}>{item.label}</NavigationLink>
           </li>
         ))}
       </ul>

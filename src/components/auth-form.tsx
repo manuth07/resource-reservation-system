@@ -4,11 +4,13 @@ import { loginAction, changePasswordAction } from "@/app/auth-actions";
 import { PasswordField } from "@/components/password-field";
 import { Button, FormField, Input } from "@/components/ui";
 import type { ActionResult } from "@/lib/action-result";
+import { useSubmissionLock } from "@/components/use-submission-lock";
 
 export function AuthForm({ mode }: { mode: "login" | "password" }) {
   const [state, action, pending] = useActionState(mode === "login" ? loginAction : changePasswordAction, {} as ActionResult);
+  const submission = useSubmissionLock(pending);
   return (
-    <form action={action} className="space-y-6" aria-busy={pending}>
+    <form action={action} className="space-y-6" aria-busy={pending} onSubmit={(event) => { if (!submission.acquire()) event.preventDefault(); }}>
       <fieldset disabled={pending} className="space-y-4">
         {mode === "login" ? (
           <>
