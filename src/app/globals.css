@@ -1,23 +1,119 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  color-scheme: light;
+  --background: #f5f7fa;
+  --surface: #ffffff;
+  --foreground: #071126;
+  --secondary: #34435b;
+  --muted: #526277;
+  --border: #d9e1ea;
+  --control-border: #8191a5;
+  --primary: #087f78;
+  --primary-hover: #066b65;
+  --primary-active: #055b56;
+  --on-primary: #ffffff;
+  --accent-on-dark: #5eead4;
+  --muted-on-dark: #c4d1e2;
+  --focus: #087f78;
+  --disabled: #e9eef3;
+  --disabled-foreground: #526277;
+  --input: #ffffff;
+  --table-header: #edf1f6;
+  --navigation-selected: #e5f3f1;
+  --success: #176544;
+  --success-surface: #edf7f0;
+  --warning: #78520d;
+  --warning-surface: #fff6df;
+  --danger: #a22c35;
+  --danger-hover: #87232b;
+  --danger-surface: #fcedee;
+  --info: #25588c;
+  --info-surface: #edf4fb;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --font-sans: Arial, Helvetica, sans-serif;
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-on-primary: var(--on-primary);
+  --color-accent-on-dark: var(--accent-on-dark);
+  --color-muted-on-dark: var(--muted-on-dark);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --font-sans: var(--font-body-face), Arial, sans-serif;
+  --font-heading: var(--font-heading-face), Arial, sans-serif;
+  --radius-control: 4px;
+  --radius-badge: 2px;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  body { background: var(--background); color: var(--foreground); font-family: var(--font-body-face), Arial, sans-serif; font-size: 14px; line-height: 1.6; }
+  h1, h2, h3 { font-family: var(--font-heading-face), Arial, sans-serif; }
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  button:not(:disabled), summary { cursor: pointer; }
+  :where(input, select, textarea, button):disabled { cursor: not-allowed; }
 }
 
 @layer components {
-  .field { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20; }
-  .button-primary { @apply rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:opacity-60; }
+  .page-title { font-family: var(--font-heading-face), Arial, sans-serif; font-size: 28px; line-height: 1.25; font-weight: 700; }
+  .section-title { font-size: 20px; line-height: 1.4; font-weight: 600; }
+  .card-title { font-size: 18px; line-height: 1.4; font-weight: 600; }
+  .section-label { color: var(--muted); font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .supporting-text { color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .form-label { display: block; color: var(--secondary); font-size: 14px; font-weight: 500; }
+  .page-header { @apply mb-8 flex flex-wrap items-start justify-between gap-4; }
+  .panel { border: 1px solid var(--border); background: var(--surface); border-radius: 0; }
+  .field { width: 100%; min-height: 44px; border: 1px solid var(--control-border); border-radius: 4px; padding: 8px 16px; background: var(--input); color: var(--foreground); font-size: 14px; }
+  .field:focus { border-color: var(--focus); }
+  .field:disabled { background: var(--disabled); color: var(--disabled-foreground); }
+  .field::placeholder { color: var(--muted); }
+  .field[aria-invalid="true"] { border-color: var(--danger); }
+  .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid transparent; border-radius: 4px; padding: 8px 16px; font-size: 14px; font-weight: 600; line-height: 1.5; text-align: center; }
+  .button-primary { background: var(--primary); color: var(--on-primary); }
+  .button-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .button-primary:active:not(:disabled) { background: var(--primary-active); }
+  .button-secondary { background: var(--surface); border-color: var(--control-border); color: var(--foreground); }
+  .button-secondary:hover:not(:disabled) { background: var(--table-header); }
+  .button-danger { background: var(--danger); color: var(--on-primary); }
+  .button-danger:hover:not(:disabled) { background: var(--danger-hover); }
+  .button:disabled { background: var(--disabled); border-color: var(--border); color: var(--disabled-foreground); }
+  .text-link { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+  .text-link:hover { color: var(--primary-hover); }
+  .status-badge { display: inline-flex; border: 1px solid currentColor; border-radius: 2px; padding: 0 8px; font-size: 12px; font-weight: 500; line-height: 24px; }
+  .status-success, .feedback-success { color: var(--success); background: var(--success-surface); }
+  .status-warning, .feedback-warning { color: var(--warning); background: var(--warning-surface); }
+  .status-danger, .feedback-danger { color: var(--danger); background: var(--danger-surface); }
+  .status-info, .feedback-info { color: var(--info); background: var(--info-surface); }
+  .status-neutral { color: var(--secondary); background: var(--table-header); }
+  .feedback { border: 1px solid currentColor; border-radius: 0; padding: 16px; font-size: 14px; }
+  .empty-state { padding: 32px; text-align: center; }
+  .table-scroll { overflow-x: auto; }
+  .data-table { width: 100%; min-width: 640px; border-collapse: collapse; text-align: left; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .data-table thead { background: var(--table-header); color: var(--secondary); }
+  .data-table th { padding: 16px 24px; font-weight: 600; }
+  .data-table td { padding: 16px 24px; vertical-align: top; }
+  .data-table tr { border-top: 1px solid var(--border); }
+  .data-table tbody tr:hover { background: var(--background); }
+  .app-header { @apply flex flex-wrap items-center justify-between gap-4 border-b border-border bg-surface px-4 py-4 sm:px-8; }
+  .brand { color: var(--foreground); font-family: var(--font-heading-face), Arial, sans-serif; font-size: 20px; font-weight: 700; }
+  .app-body { @apply grid w-full md:grid-cols-[224px_minmax(0,1fr)]; }
+  .app-navigation { @apply border-b border-border bg-surface p-4 md:min-h-[calc(100vh-77px)] md:border-r md:border-b-0; }
+  .nav-link { display: block; border-left: 3px solid transparent; padding: 8px 16px; min-height: 44px; color: var(--secondary); font-weight: 500; }
+  .nav-link:hover { background: var(--background); }
+  .nav-link[aria-current="page"] { border-color: var(--primary); color: var(--primary-active); background: var(--navigation-selected); }
+  .workspace-content { @apply min-w-0 px-4 py-8 sm:px-8 lg:p-12; }
+  .account-menu { position: relative; }
+  .account-menu summary { border: 1px solid var(--control-border); border-radius: 4px; padding: 8px 16px; min-height: 44px; }
+  .account-menu-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 10; min-width: 224px; max-width: calc(100vw - 32px); border: 1px solid var(--border); padding: 16px; background: var(--surface); }
+  .skip-link { position: fixed; top: -100px; left: 16px; z-index: 20; padding: 8px 16px; background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
+  .skip-link:focus { top: 16px; }
 }
