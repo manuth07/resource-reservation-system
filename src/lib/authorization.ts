@@ -18,7 +18,7 @@ export class AuthorizationError extends Error {
 // Deliberately uncached so each operation checks current PostgreSQL state.
 export async function getAuthenticatedUser() {
   const session = await auth();
-  if (!session?.user?.id) return null;
+  if (!session?.user?.id || !Number.isSafeInteger(session.user.sessionVersion) || session.user.sessionVersion < 0) return null;
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -29,10 +29,11 @@ export async function getAuthenticatedUser() {
       departmentId: true,
       accountStatus: true,
       mustChangePassword: true,
+      sessionVersion: true,
     },
   });
 
-  return user?.accountStatus === AccountStatus.ACTIVE ? user : null;
+  return user?.accountStatus === AccountStatus.ACTIVE && user.sessionVersion === session.user.sessionVersion ? user : null;
 }
 
 // Required entry point for ALL normal protected pages, actions, and services.

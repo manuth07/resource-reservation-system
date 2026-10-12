@@ -1,0 +1,8 @@
+import Link from "next/link";
+import { requirePageUser } from "@/lib/page-auth";
+export default async function DashboardPage() {
+  const user = await requirePageUser();
+  const admin = user.role === "ADMIN";
+  const head = user.role === "DEPARTMENT_HEAD";
+  return <><p className="text-xs font-semibold uppercase tracking-widest text-teal-700">{admin ? "Administration" : head ? "Department workspace" : "Employee workspace"}</p><h1 className="mt-3 text-3xl font-semibold tracking-tight">Welcome, {user.employeeId}</h1><p className="mt-3 text-slate-500">{admin ? "Manage employee access and keep your organization connected." : "Your account is ready. Your team’s reservation workspace is coming next."}</p><div className="mt-10 grid gap-6 sm:grid-cols-2">{admin && <Link href="/admin/employees" className="rounded-2xl border border-teal-200 bg-white p-7 transition hover:shadow-md"><p className="text-sm font-medium text-teal-700">People & access</p><h2 className="mt-3 text-xl font-semibold">Employee accounts →</h2><p className="mt-3 text-sm leading-6 text-slate-500">Create employee accounts, designate department heads and reset temporary credentials.</p></Link>}<section className="rounded-2xl border border-slate-200 bg-white p-7"><p className="text-sm font-medium text-slate-500">Coming next</p><h2 className="mt-3 text-xl font-semibold">{head ? "Requests & department approvals" : "Resource reservations"}</h2><p className="mt-3 text-sm leading-6 text-slate-500">{head ? "Reserve resources and review requests belonging to your department." : "Meeting rooms, equipment and transport — all in one place."}</p></section></div></>;
+}

@@ -4,6 +4,7 @@ import { verify } from "argon2";
 import { AccountStatus } from "@/generated/prisma/enums";
 import type { User } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { limitLogin } from "@/lib/rate-limit";
 
 // Public dummy digest of random data, not an account credential. Missing users
 // still incur an Argon2id verification rather than an immediate rejection.
@@ -16,6 +17,7 @@ export function normalizeEmployeeId(value: string): string {
 
 export async function verifyEmployeeCredentials(
   credentials: Partial<Record<"employeeId" | "password", unknown>>,
+  request?: Request,
 ) {
   if (
     typeof credentials.employeeId !== "string" ||
@@ -30,15 +32,16 @@ export async function verifyEmployeeCredentials(
   if (!employeeId || employeeId.length > 128 || !password || password.length > 1024) {
     return null;
   }
+  try { await limitLogin(employeeId, request); } catch { return null; }
 
   // Existing text uniqueness is case-sensitive. Fail closed if two legacy IDs
   // normalize to the same identity; future provisioning must use this normalizer.
   // Parameterized equality avoids Prisma's insensitive-equals ILIKE behavior.
   // %, _, and backslashes are literal ID characters, not pattern operators.
   const users = await prisma.$queryRaw<
-    Pick<User, "id" | "employeeId" | "role" | "accountStatus" | "passwordHash">[]
+    Pick<User, "id" | "employeeId" | "role" | "accountStatus" | "passwordHash" | "sessionVersion">[]
   >`
-    SELECT "id", "employeeId", "role", "accountStatus", "passwordHash"
+    SELECT "id", "employeeId", "role", "accountStatus", "passwordHash", "sessionVersion"
     FROM "public"."User"
     WHERE upper("employeeId") = ${employeeId}
     LIMIT 2
@@ -65,5 +68,6 @@ export async function verifyEmployeeCredentials(
     id: user.id,
     employeeId: normalizeEmployeeId(user.employeeId),
     role: user.role,
+    sessionVersion: user.sessionVersion,
   };
 }

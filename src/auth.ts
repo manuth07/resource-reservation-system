@@ -12,6 +12,7 @@ if (!secret?.trim() || Buffer.byteLength(secret, "utf8") < 32) {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret,
+  pages: { signIn: "/login", error: "/login" },
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
   providers: [
     Credentials({
@@ -26,15 +27,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt({ token, user }) {
       if (user) {
         // Explicit allowlist: never copy the database record or client updates.
-        return { sub: user.id, employeeId: user.employeeId, role: user.role };
+        return { sub: user.id, employeeId: user.employeeId, role: user.role, sessionVersion: user.sessionVersion };
       }
+      if (!Number.isSafeInteger(token.sessionVersion) || token.sessionVersion < 0) return null;
       return token;
     },
     session({ session, token }) {
       if (
         !token.sub ||
         typeof token.employeeId !== "string" ||
-        !Object.values(UserRole).includes(token.role)
+        !Object.values(UserRole).includes(token.role) ||
+        !Number.isSafeInteger(token.sessionVersion) || token.sessionVersion < 0
       ) {
         throw new Error("Invalid session claims.");
       }
@@ -44,6 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: token.sub,
           employeeId: token.employeeId,
           role: token.role,
+          sessionVersion: token.sessionVersion,
         },
       };
     },

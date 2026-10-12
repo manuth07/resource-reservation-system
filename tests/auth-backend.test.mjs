@@ -37,12 +37,14 @@ const account = {
   departmentId: "department-fixture",
   mustChangePassword: false,
   passwordHash: digest,
+  sessionVersion: 0,
 };
 
 function credentialsFor(records, onQuery) {
   return loadSource("src/lib/credentials.ts", {
     argon2,
     "@/generated/prisma/enums": enums,
+    "@/lib/rate-limit": { limitLogin: async () => {} },
     "@/lib/prisma": { prisma: { $queryRaw: async (strings, ...values) => {
       const sql = strings.join("?");
       assert.match(sql, /FROM "public"\."User"\s+WHERE upper\("employeeId"\) = \?\s+LIMIT 2/);
@@ -73,7 +75,7 @@ test("credentials normalize IDs, preserve password bytes, and return only safe c
   const user = await credentials.verifyEmployeeCredentials({ employeeId: " emp001 ", password: "fixture password" });
   assert.equal(query.employeeId, "EMP001");
   assert.equal(user.id, account.id);
-  assert.deepEqual(Object.keys(user).sort(), ["employeeId", "id", "role"]);
+  assert.deepEqual(Object.keys(user).sort(), ["employeeId", "id", "role", "sessionVersion"]);
   assert.equal(await credentials.verifyEmployeeCredentials({ employeeId: "EMP001", password: " fixture password " }), null);
 });
 
@@ -94,20 +96,24 @@ test("JWT/session callbacks allowlist claims and ignore forged update data", () 
   assert.equal(config.session.strategy, "jwt");
   assert.equal(config.adapter, undefined);
   const token = config.callbacks.jwt({ token: {}, user: account });
-  assert.deepEqual(Object.keys(token).sort(), ["employeeId", "role", "sub"]);
+  assert.deepEqual(Object.keys(token).sort(), ["employeeId", "role", "sessionVersion", "sub"]);
   const updated = config.callbacks.jwt({ token, trigger: "update", session: {
-    sub: "attacker-id", id: "attacker-id", employeeId: "ADMIN001", role: "ADMIN",
+    sub: "attacker-id", id: "attacker-id", employeeId: "ADMIN001", role: "ADMIN", sessionVersion: 999,
     user: { id: "attacker-id", employeeId: "ADMIN001", role: "ADMIN" },
   } });
   assert.equal(updated.sub, account.id);
   assert.equal(updated.employeeId, account.employeeId);
   assert.equal(updated.role, "EMPLOYEE");
+  assert.equal(updated.sessionVersion, 0);
   const session = config.callbacks.session({ session: { expires: "fixture-expiry", user: account }, token });
-  assert.deepEqual(Object.keys(session.user).sort(), ["employeeId", "id", "role"]);
+  assert.deepEqual(Object.keys(session.user).sort(), ["employeeId", "id", "role", "sessionVersion"]);
   assert.equal(session.user.id, account.id);
   assert.equal(session.user.employeeId, account.employeeId);
   assert.equal(session.user.role, account.role);
   assert.throws(() => config.callbacks.session({ session, token: {} }), /Invalid session/);
+  for (const sessionVersion of [undefined, -1, 0.5, "0"]) {
+    assert.equal(config.callbacks.jwt({ token: { ...token, sessionVersion } }), null);
+  }
 });
 
 test("IDs containing underscore, percent, backslash and quotes match literally", async () => {
@@ -155,7 +161,7 @@ test("unauthenticated sessions cannot retrieve users or pass authorization guard
 test("authorization checks fresh database state and gates mandatory password changes", async () => {
   let current = { ...account, mustChangePassword: true };
   const authorization = loadSource("src/lib/authorization.ts", {
-    "@/auth": { auth: async () => ({ user: { id: account.id, role: "ADMIN" } }) },
+    "@/auth": { auth: async () => ({ user: { id: account.id, role: "ADMIN", sessionVersion: 0 } }) },
     "@/generated/prisma/enums": enums,
     "@/lib/prisma": { prisma: { user: { findUnique: async ({ select }) => {
       assert.equal(select.passwordHash, undefined);
