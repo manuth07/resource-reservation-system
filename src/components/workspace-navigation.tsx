@@ -1,24 +1,36 @@
 "use client";
 
+import { useRef } from "react";
 import { NavigationLink } from "@/components/navigation-link";
 import { usePathname } from "next/navigation";
 
-export function WorkspaceNavigation({ isAdmin }: { isAdmin: boolean }) {
+const workspaceItems = [{ href: "/dashboard", label: "Dashboard" }, { href: "/resources", label: "Resource catalog" }];
+const adminItems = [{ href: "/admin/resources", label: "Resources" }, { href: "/admin/resource-categories", label: "Categories" }, { href: "/admin/employees", label: "Employees" }];
+const currentItem = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+export function WorkspaceSectionLabel() {
   const pathname = usePathname();
-  const items = [{ href: "/dashboard", label: "Dashboard" }, { href: "/resources", label: "Resources" }];
-  if (isAdmin) items.push({ href: "/admin/employees", label: "Employees" }, { href: "/admin/resources", label: "Manage resources" }, { href: "/admin/resource-categories", label: "Resource categories" });
-  const current = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const section = items.find((item) => current(item.href))?.label ?? "Workspace";
-  return (
-    <nav aria-label="Workspace navigation" className="app-navigation">
-      <p className="mb-4 px-4 text-xs text-muted">Current section: <span className="font-semibold text-secondary">{section}</span></p>
-      <ul className="flex flex-wrap gap-2 md:block md:space-y-2">
-        {items.map((item) => (
-          <li key={item.href}>
-            <NavigationLink className="nav-link flex items-center justify-between gap-2" href={item.href} aria-current={current(item.href) ? "page" : undefined}>{item.label}</NavigationLink>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
+  const section = [...workspaceItems, ...adminItems].find((item) => currentItem(pathname, item.href))?.label ?? "Workspace";
+  return <p className="workspace-context"><span>{pathname.startsWith("/admin/") ? "Administration" : "Workspace"}</span><span aria-hidden="true">/</span><span className="font-medium text-foreground">{section}</span></p>;
+}
+
+export function WorkspaceNavigation({ isAdmin, mobile = false }: { isAdmin: boolean; mobile?: boolean }) {
+  const pathname = usePathname();
+  const disclosure = useRef<HTMLDetailsElement>(null);
+  const summary = useRef<HTMLElement>(null);
+  const close = () => { if (disclosure.current) disclosure.current.open = false; };
+  const groups = [{ label: "Workspace", items: workspaceItems }, ...(isAdmin ? [{ label: "Administration", items: adminItems }] : [])];
+  const navigation = <nav aria-label={mobile ? "Mobile workspace navigation" : "Workspace navigation"} className="app-navigation">
+    {groups.map((group) => <div key={group.label} className="navigation-group">
+      <p className="navigation-label">{group.label}</p>
+      <ul className="space-y-1">{group.items.map((item) => <li key={item.href}>
+        <NavigationLink className="nav-link" href={item.href} aria-current={currentItem(pathname, item.href) ? "page" : undefined} onNavigate={mobile ? close : undefined}>{item.label}</NavigationLink>
+      </li>)}</ul>
+    </div>)}
+  </nav>;
+  if (!mobile) return navigation;
+  return <details ref={disclosure} className="mobile-navigation" onKeyDown={(event) => { if (event.key === "Escape" && disclosure.current?.open) { close(); summary.current?.focus(); } }}>
+    <summary ref={summary}>Menu</summary>
+    <div className="mobile-navigation-panel">{navigation}</div>
+  </details>;
 }
