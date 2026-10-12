@@ -97,7 +97,8 @@ Tiny typographic details and thin borders may fall outside that rhythm.
 
 Import from `@/components/ui`:
 
-- `Button`: `primary` (default), `secondary`, `danger`. Always set `type` in forms.
+- `Button`: `primary` (default), `secondary`, `neutral`, `danger`. Always set `type` in forms.
+  Resource Edit actions use neutral gray; confirmed deactivation uses danger.
   Use primary for the main action, secondary for auxiliary actions. Use the same
   `.button .button-primary` classes on links that navigate rather than submit.
 - `Input`: native input props and `.field`. Textareas use `.field`.
@@ -106,16 +107,26 @@ Import from `@/components/ui`:
 - `FormField`: explicit `id`, visible `label`, optional `required`, `hint` and `error`.
   Consumers connect hints/errors using `aria-describedby="<id>-hint <id>-error"`
   and set `aria-invalid` on invalid controls. It does not clone children.
-- `ConfirmationDialog`: native modal dialog with a labelled title/description,
+- `ConfirmationDialog` (from `@/components/confirmation-dialog`): native modal dialog with a labelled title/description,
   Cancel-first focus and focus restoration. Escape dismisses while idle; pending
   operations disable dismissal and both buttons until the request completes.
   Callers retain their synchronous submission lock and authoritative Server Action.
+  Its scoped CSS sits outside utility layers, with fixed viewport insets, auto
+  margins, a 480px maximum card, small shadow and dimmed/blurred backdrop. Native
+  `showModal()` provides the top layer; do not replace it with an `open` attribute.
+  The effect locks background scrolling and restores its previous overflow value.
+- `Feedback`: compact semantic feedback for resource success/error messages;
+  success uses `role="status"`, errors use `role="alert"`. Keep field errors inline.
+- `useValidationFocus` (from `@/components/use-validation-focus`): focus the first enabled, visible invalid resource/category
+  control after server validation, after pending/modal state has completed.
 - `Card`: rectangular section with optional accessible label; padding is supplied
   by the caller. Supply a heading inside it for semantic content structure.
 - `PageHeader`: one page title, optional section label, description and action slot.
   The action sits at the upper right on desktop and wraps naturally on mobile.
 - `StatusBadge`: `success`, `warning`, `danger`, `info`, `neutral`. Always include
   meaningful visible text; the badge alone is not an ARIA live region.
+  Resource categories use subtle neutral badges; booking policies use warning
+  (approval) or accent (direct booking), with clear text independent of color.
 - `EmptyState`: explain what is absent and what to do next; optional valid action.
 - `LoadingState`: a polite status message without decorative animation.
 - `PageLoading`: table/form/detail skeletons with accessible status text. Decorative
@@ -161,6 +172,8 @@ must show current criteria and result counts; do not add inactive decorative con
 The table region can scroll horizontally and receive keyboard focus on narrow
 screens. Content elsewhere must wrap without horizontal page overflow. Do not
 replace tables with dense stacks of unrelated cards on mobile.
+The scroll region establishes a positioning context to contain absolutely positioned
+screen-reader labels. Resource tables use middle alignment and stronger identity text.
 
 ## Page and navigation patterns
 

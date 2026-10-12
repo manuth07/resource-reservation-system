@@ -75,6 +75,53 @@ Files touched by this refinement (separate from the preceding rendering work):
 - `docs/design-system.md`
 - `docs/resource-management.md`
 
+## Batch 1 presentation refinement
+
+Native modal geometry is now explicit: fixed viewport insets, automatic centering,
+480px width constrained by the viewport, intrinsic height and scrollable long content.
+Scoped unlayered rules protect it from utility-layer spacing overrides. The native
+top layer, keyboard semantics and existing mutation handlers remain intact. A subtle
+shadow and dimmed/blurred backdrop distinguish the card; its effect also restores
+background scroll settings on cleanup.
+
+The reported top-left stretch could not be reproduced using the previous production
+CSS and shared markup in the sample browser fixture. The previous rules relied on
+browser-default positioning, and their component layer could lose to layout utilities;
+these are addressed as CSS risks, not claimed as a confirmed cause of that report.
+No authenticated browser was available to inspect the original failing application.
+
+Browser QA did reproduce mobile page overflow from absolutely positioned screen-reader
+labels inside a table without a positioning context. Adding `position: relative` to
+the table scroll region contained that overflow (375px viewport: root scroll width
+changed from 804px to 375px). The table itself still scrolls horizontally.
+
+Resource identity has stronger navy text, muted codes, subtle category badges,
+warning/direct-booking policy badges and explicit active/inactive statuses. Edit is a
+neutral shared button; primary, secondary and confirmed-destructive meanings remain
+distinct. Compact Feedback replaces trivial success banners. Server field errors
+retain entered data and focus the first enabled visible invalid control after pending
+work/modal dismissal. No backend, authentication, schema or business-policy changes.
+
+Changed files: `src/app/globals.css`, `src/components/ui.tsx`,
+`src/components/confirmation-dialog.tsx`, `src/components/use-validation-focus.ts` (new),
+`src/components/category-form.tsx`, `src/components/resource-form.tsx`,
+`src/components/resource-status-control.tsx`, `src/components/resource-list.tsx`,
+`src/app/(protected)/admin/resource-categories/page.tsx`, `tests/resource-ux.test.mjs`,
+`docs/design-system.md`, and this document.
+
+The temporary fixture uses sample records, actual rendered shared markup/compiled
+CSS and a small native-dialog event bridge, with no database access. It checks CSS
+centering, native keyboard behavior and responsiveness; it is not authenticated
+React/Server Action end-to-end coverage. Live mutation success/failure, modal pending
+states, error focus and retained values still need authenticated browser verification.
+
+Final fixture checks passed at 1440×900 and 390×844: native modal card centered and
+within bounds, Inter body/Urbanist heading fonts, Cancel/Escape dismissal and restored
+trigger focus, and no page-level horizontal overflow. Desktop Edit/status controls
+shared the same vertical position and 44px height. The sample fixture was removed
+after QA. TypeScript, full ESLint, tests and webpack build passed; an intermediate
+webpack WASM cache error required clearing only `.next/cache/webpack` and rebuilding.
+
 ## Server validation and authorization
 
 Services in `src/lib/resource-service.ts` use existing current-database guards.
