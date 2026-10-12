@@ -6,15 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "admin:bootstrap": "node --conditions=react-server scripts/run-admin-bootstrap.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "argon2": "^0.45.1",
     "next": "16.4.0",
+    "next-auth": "^5.0.0-beta.32",
     "pg": "^8.23.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
@@ -27,6 +31,7 @@
     "eslint-config-next": "16.4.0",
     "prisma": "^7.10.0",
     "tailwindcss": "^4",
+    "jiti": "^2.7.0",
     "typescript": "^5"
   }
 }
