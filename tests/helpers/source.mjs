@@ -5,7 +5,7 @@ import ts from "typescript";
 
 export function loadSource(path, mocks, env = { AUTH_SECRET: "test-only-secret-with-at-least-32-characters", NODE_ENV: "test" }, globals = {}) {
   const { outputText } = ts.transpileModule(readFileSync(resolve(path), "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   });
   const exports = {};
   vm.runInNewContext(outputText, {

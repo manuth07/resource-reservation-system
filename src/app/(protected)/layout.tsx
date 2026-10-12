@@ -1,8 +1,36 @@
-import Link from "next/link";
-import type { ReactNode } from "react";
+import { NavigationLink as Link } from "@/components/navigation-link";
+import { connection } from "next/server";
+import { Suspense, type ReactNode } from "react";
+import { WorkspaceLoading, PageLoading } from "@/components/page-loading";
 import { requirePageUser } from "@/lib/page-auth";
 import { logoutAction } from "@/app/auth-actions";
-export default async function ProtectedLayout({ children }: { children: ReactNode }) {
+import { WorkspaceNavigation } from "@/components/workspace-navigation";
+import { Button } from "@/components/ui";
+export default function ProtectedLayout({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<WorkspaceLoading />}><ProtectedWorkspace>{children}</ProtectedWorkspace></Suspense>;
+}
+
+async function ProtectedWorkspace({ children }: { children: ReactNode }) {
+  await connection();
   const user = await requirePageUser();
-  return <div className="min-h-screen bg-slate-50"><header className="border-b border-slate-200 bg-white"><div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-5"><Link href="/dashboard" className="text-xl font-semibold tracking-tight">PrimeWave<span className="ml-1 text-teal-600">/</span></Link><nav aria-label="Workspace navigation" className="flex flex-wrap items-center gap-5 text-sm"><Link href="/dashboard">Workspace</Link>{user.role === "ADMIN" && <Link href="/admin/employees">Employees</Link>}<Link href="/change-password">Password</Link><form action={logoutAction}><button className="font-medium text-slate-500 hover:text-slate-900">Sign out</button></form></nav></div></header><main className="mx-auto max-w-6xl px-6 py-10">{children}</main></div>;
+  return (
+    <div className="min-h-screen">
+      <a href="#workspace-main" className="skip-link">Skip to main content</a>
+      <header className="app-header">
+        <Link href="/dashboard" className="brand">PrimeWave</Link>
+        <details className="account-menu">
+          <summary>Account: <span className="font-semibold">{user.employeeId}</span></summary>
+          <div className="account-menu-panel space-y-4">
+            <p className="supporting-text">{user.role === "ADMIN" ? "Administrator" : user.role === "DEPARTMENT_HEAD" ? "Department Head" : "Employee"}</p>
+            <Link href="/change-password" className="text-link block py-2">Change password</Link>
+            <form action={logoutAction}><Button variant="secondary" type="submit" className="w-full">Sign out</Button></form>
+          </div>
+        </details>
+      </header>
+      <div className="app-body">
+        <WorkspaceNavigation isAdmin={user.role === "ADMIN"} />
+        <main id="workspace-main" tabIndex={-1} className="workspace-content"><Suspense fallback={<PageLoading />}>{children}</Suspense></main>
+      </div>
+    </div>
+  );
 }

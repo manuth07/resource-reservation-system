@@ -5,6 +5,7 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import * as argon2 from "argon2";
+import * as React from "react";
 
 // Exercise the actual TypeScript functions with framework/database boundaries
 // mocked. No database connection, account creation, or real credentials are used.
@@ -17,6 +18,7 @@ function loadSource(path, mocks, env = { AUTH_SECRET: "test-only-secret-with-at-
     exports,
     require(name) {
       if (name === "server-only") return {};
+      if (name === "react") return React;
       if (Object.hasOwn(mocks, name)) return mocks[name];
       throw new Error(`Unexpected dependency: ${name}`);
     },

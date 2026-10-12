@@ -1,8 +1,34 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
+import { connection } from "next/server";
 import { requirePageUser } from "@/lib/page-auth";
-export default async function DashboardPage() {
+import { Card, PageHeader, StatusBadge } from "@/components/ui";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/page-loading";
+export default function DashboardPage() {
+  return <Suspense fallback={<PageLoading title="Dashboard" variant="detail" />}><DashboardContent /></Suspense>;
+}
+async function DashboardContent() {
+  await connection();
   const user = await requirePageUser();
   const admin = user.role === "ADMIN";
   const head = user.role === "DEPARTMENT_HEAD";
-  return <><p className="text-xs font-semibold uppercase tracking-widest text-teal-700">{admin ? "Administration" : head ? "Department workspace" : "Employee workspace"}</p><h1 className="mt-3 text-3xl font-semibold tracking-tight">Welcome, {user.employeeId}</h1><p className="mt-3 text-slate-500">{admin ? "Manage employee access and keep your organization connected." : "Your account is ready. Your team’s reservation workspace is coming next."}</p><div className="mt-10 grid gap-6 sm:grid-cols-2">{admin && <Link href="/admin/employees" className="rounded-2xl border border-teal-200 bg-white p-7 transition hover:shadow-md"><p className="text-sm font-medium text-teal-700">People & access</p><h2 className="mt-3 text-xl font-semibold">Employee accounts →</h2><p className="mt-3 text-sm leading-6 text-slate-500">Create employee accounts, designate department heads and reset temporary credentials.</p></Link>}<section className="rounded-2xl border border-slate-200 bg-white p-7"><p className="text-sm font-medium text-slate-500">Coming next</p><h2 className="mt-3 text-xl font-semibold">{head ? "Requests & department approvals" : "Resource reservations"}</h2><p className="mt-3 text-sm leading-6 text-slate-500">{head ? "Reserve resources and review requests belonging to your department." : "Meeting rooms, equipment and transport — all in one place."}</p></section></div></>;
+  return (
+    <>
+      <PageHeader section={admin ? "Administration" : head ? "Department workspace" : "Employee workspace"} title="Dashboard" description={`Signed in as ${user.employeeId}. ${admin ? "Manage employee access for your organization." : "Your account is ready to use."}`} action={<Link className="button button-primary" href={admin ? "/admin/resources" : "/resources"}>{admin ? "Manage resources" : "Browse resources"}</Link>} />
+      <div className="space-y-8">
+        {admin && (
+          <Card className="p-6 sm:p-8">
+            <h2 className="section-title">Employee accounts</h2>
+            <p className="mt-2 text-secondary">Create employee accounts, designate department heads and reset credentials.</p>
+            <Link href="/admin/employees" className="button button-primary mt-4">Manage employees</Link>
+          </Card>
+        )}
+        <Card className="p-6 sm:p-8">
+          <StatusBadge tone="info">Not yet available</StatusBadge>
+          <h2 className="section-title mt-4">{head ? "Reservations and department approvals" : "Resource reservations"}</h2>
+          <p className="mt-2 text-secondary">{head ? "Resource booking and department request reviews will be available here." : "Meeting rooms, equipment and transport booking will be available here."}</p>
+        </Card>
+      </div>
+    </>
+  );
 }
