@@ -4,7 +4,11 @@ import { useRef } from "react";
 import { NavigationLink } from "@/components/navigation-link";
 import { usePathname } from "next/navigation";
 
-const workspaceItems = [{ href: "/dashboard", label: "Dashboard" }, { href: "/resources", label: "Resource catalog" }];
+const workspaceItems = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/resources", label: "Resource catalog" },
+  { href: "/reservations", label: "My reservations" },
+];
 const adminItems = [{ href: "/admin/resources", label: "Resources" }, { href: "/admin/resource-categories", label: "Categories" }, { href: "/admin/employees", label: "Employees" }];
 const currentItem = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 

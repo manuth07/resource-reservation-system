@@ -25,6 +25,9 @@ async function ResourceDetailContent({ params }: Props) {
   const resource = await getResource((await params).id);
   if (!resource) notFound();
 
+  const isDirectBookingEligible =
+    resource.isActive && !resource.requiresApproval && !resource.category.isVehicle;
+
   return (
     <>
       <PageHeader
@@ -32,11 +35,28 @@ async function ResourceDetailContent({ params }: Props) {
         title={resource.name}
         description={resource.resourceCode}
         action={
-          user.role === "ADMIN" && (
-            <Link className="button button-primary" href={`/admin/resources/${resource.id}/edit`}>
-              Edit resource
-            </Link>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            {isDirectBookingEligible && (
+              <Link
+                className="button button-primary"
+                href={`/resources/${resource.id}/book`}
+              >
+                Book resource
+              </Link>
+            )}
+            {user.role === "ADMIN" && (
+              <Link
+                className={
+                  isDirectBookingEligible
+                    ? "button button-secondary"
+                    : "button button-primary"
+                }
+                href={`/admin/resources/${resource.id}/edit`}
+              >
+                Edit resource
+              </Link>
+            )}
+          </div>
         }
       />
       <Card className="max-w-3xl p-6 sm:p-8">
@@ -101,10 +121,41 @@ async function ResourceDetailContent({ params }: Props) {
             <dd className="mt-2">{resource.category.isVehicle ? "Vehicle / Transport" : "Standard resource"}</dd>
           </div>
         </dl>
-        <p className="feedback feedback-info mt-8">
-          Operational status does not indicate availability at a particular date or time. Booking is not implemented yet.
-          {resource.category.isVehicle && " Vehicle requests will require administrator assignment of a specific vehicle and driver."}
-        </p>
+
+        {isDirectBookingEligible ? (
+          <div className="mt-8 flex flex-col gap-3 rounded border border-border bg-table-header p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-foreground">Direct booking is enabled for this resource.</p>
+              <p className="text-secondary text-xs mt-0.5">
+                Reservations are confirmed immediately upon submission without requiring supervisory approval.
+              </p>
+            </div>
+            <Link
+              className="button button-primary shrink-0"
+              href={`/resources/${resource.id}/book`}
+            >
+              Book resource
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-8">
+            {!resource.isActive && (
+              <p className="feedback feedback-warning">
+                This resource is currently inactive and cannot be reserved.
+              </p>
+            )}
+            {resource.isActive && resource.category.isVehicle && (
+              <p className="feedback feedback-info">
+                Vehicles cannot be directly reserved. Transport requests will follow the vehicle allocation workflow.
+              </p>
+            )}
+            {resource.isActive && !resource.category.isVehicle && resource.requiresApproval && (
+              <p className="feedback feedback-info">
+                This resource requires administrative and supervisory approval before booking. Direct booking is not permitted.
+              </p>
+            )}
+          </div>
+        )}
       </Card>
       <Link href="/resources" className="text-link mt-6 inline-block">
         Back to resource catalog
