@@ -267,13 +267,14 @@ export function ApprovalControls({
             {error}
           </span>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
           {canAdminReview && (
             <>
               <Button
                 type="button"
                 variant="primary"
                 size="sm"
+                className="whitespace-nowrap"
                 disabled={isPending}
                 onClick={handleAdminForward}
               >
@@ -283,6 +284,7 @@ export function ApprovalControls({
                 type="button"
                 variant="danger"
                 size="sm"
+                className="whitespace-nowrap"
                 disabled={isPending}
                 onClick={() => {
                   setError(null);
@@ -300,6 +302,7 @@ export function ApprovalControls({
                 type="button"
                 variant="primary"
                 size="sm"
+                className="whitespace-nowrap"
                 disabled={isPending}
                 onClick={handleHodApprove}
               >
@@ -309,6 +312,7 @@ export function ApprovalControls({
                 type="button"
                 variant="danger"
                 size="sm"
+                className="whitespace-nowrap"
                 disabled={isPending}
                 onClick={() => {
                   setError(null);
@@ -325,6 +329,7 @@ export function ApprovalControls({
               type="button"
               variant="primary"
               size="sm"
+              className="whitespace-nowrap"
               disabled={isPending}
               onClick={handleAdminConfirm}
             >

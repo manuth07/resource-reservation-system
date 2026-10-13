@@ -177,6 +177,7 @@
     font-weight: 500;
     line-height: 1.4;
     text-align: center;
+    white-space: nowrap;
     transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
   }
   .button-sm {

@@ -162,7 +162,7 @@ async function AdminReservationsContent({ searchParams }: Props) {
                 <th scope="col">Date & Time (Asia/Colombo)</th>
                 <th scope="col">Status</th>
                 <th scope="col">Purpose</th>
-                <th scope="col" className="text-right">Actions</th>
+                <th scope="col" className="text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -211,8 +211,8 @@ async function AdminReservationsContent({ searchParams }: Props) {
                     >
                       {res.purpose}
                     </td>
-                    <td className="text-right">
-                      <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:justify-end">
+                    <td className="text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                         <ApprovalControls
                           reservationId={res.id}
                           status={res.status}
@@ -221,7 +221,7 @@ async function AdminReservationsContent({ searchParams }: Props) {
                         />
                         <Link
                           href={`/reservations/${res.id}`}
-                          className="button button-neutral button-sm"
+                          className="button button-neutral button-sm whitespace-nowrap"
                         >
                           Review
                         </Link>
