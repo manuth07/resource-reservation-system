@@ -1,3 +1,5 @@
+import Image from "next/image";
+import { isTrustedBlobUrl } from "@/lib/storage-utils";
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { Card, DataTable, EmptyState, Feedback, FormField, Input, Select, StatusBadge, Button, CategoryBadge } from "@/components/ui";
 import { ResourceStatusControl } from "@/components/resource-status-control";
@@ -122,10 +124,35 @@ export async function ResourceList({ searchParams, admin = false }: { searchPara
               {resources.map((resource) => (
                 <tr key={resource.id}>
                   <td>
-                    <Link className="text-link text-foreground font-semibold" href={`/resources/${resource.id}`}>
-                      {resource.name}
-                    </Link>
-                    <p className="resource-code">{resource.resourceCode}</p>
+                    <div className="flex items-center gap-3">
+                      {resource.imageUrl ? (
+                        <div className="relative size-14 shrink-0 overflow-hidden rounded border border-border bg-table-header">
+                          <Image
+                            src={resource.imageUrl}
+                            alt=""
+                            width={56}
+                            height={56}
+                            className="size-full object-cover"
+                            unoptimized={isTrustedBlobUrl(resource.imageUrl)}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="flex size-14 shrink-0 items-center justify-center rounded border border-border bg-table-header text-secondary"
+                          aria-hidden="true"
+                        >
+                          <svg className="size-5 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <Link className="text-link text-foreground font-semibold block truncate" href={`/resources/${resource.id}`}>
+                          {resource.name}
+                        </Link>
+                        <p className="resource-code">{resource.resourceCode}</p>
+                      </div>
+                    </div>
                   </td>
                   <td>
                     <CategoryBadge category={resource.category}>

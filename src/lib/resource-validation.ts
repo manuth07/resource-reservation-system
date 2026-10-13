@@ -36,7 +36,26 @@ export function parseResource(input: Record<string, unknown>) {
   const raw = text(input.capacity, "Capacity", 10, true, "capacity");
   if (raw && (!/^[1-9]\d*$/.test(raw) || Number(raw) > 2147483647)) throw new ResourceManagementError("Capacity must be a positive whole number no greater than 2147483647, or left empty.", "capacity");
   if (!validResourceId(input.categoryId)) throw new ResourceManagementError("Choose a valid category.", "categoryId");
-  return { resourceCode: code(input.resourceCode, "resourceCode"), name: text(input.name, "Resource name", 120, false, "name"), categoryId: input.categoryId, capacity: raw ? Number(raw) : null, location: text(input.location, "Location", 200, true, "location") || null, isActive: booleanValue(input.isActive), requiresApproval: booleanValue(input.requiresApproval) };
+
+  let imageFields: { imageUrl: string | null; imagePath: string | null } | undefined;
+  if (input.removeImage === true || input.removeImage === "true" || input.imageUrl === null) {
+    imageFields = { imageUrl: null, imagePath: null };
+  } else if (typeof input.imageUrl === "string" && input.imageUrl.trim()) {
+    const url = text(input.imageUrl, "Image URL", 1024, true, "imageUrl");
+    const path = typeof input.imagePath === "string" && input.imagePath.trim() ? text(input.imagePath, "Image path", 1024, true, "imagePath") : null;
+    imageFields = { imageUrl: url || null, imagePath: path };
+  }
+
+  return {
+    resourceCode: code(input.resourceCode, "resourceCode"),
+    name: text(input.name, "Resource name", 120, false, "name"),
+    categoryId: input.categoryId,
+    capacity: raw ? Number(raw) : null,
+    location: text(input.location, "Location", 200, true, "location") || null,
+    isActive: booleanValue(input.isActive),
+    requiresApproval: booleanValue(input.requiresApproval),
+    ...(imageFields !== undefined ? imageFields : {}),
+  };
 }
 export function parseResourceFilters(input: Record<string, string | string[] | undefined>): ResourceFilters {
   const scalar = (key: string) => {

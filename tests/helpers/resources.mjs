@@ -11,13 +11,19 @@ export const timestamp = "2026-10-12T00:00:00.000Z";
 export const categoryInput = { code: "MEETING_ROOM", name: "Meeting rooms", description: "Internal rooms", isVehicle: false };
 export const resourceInput = { resourceCode: "ROOM_001", name: "Conference room", categoryId, capacity: "12", location: "Floor 2", requiresApproval: false, isActive: true };
 
-export function resourceServiceFor(prisma, authorization, rateLimit = async () => {}) {
+export const storageServiceMock = {
+  deleteBlobSafe: async () => {},
+  verifyAndInspectBlobUrl: async () => ({ format: "jpeg", width: 800, height: 600 }),
+};
+
+export function resourceServiceFor(prisma, authorization, rateLimit = async () => {}, storage = storageServiceMock) {
   return loadSource("src/lib/resource-service.ts", {
     "@/generated/prisma/client": resourceEnums,
     "@/lib/authorization": authorization,
     "@/lib/prisma": { prisma },
     "@/lib/rate-limit": { enforceRateLimit: rateLimit },
     "@/lib/resource-validation": resourceValidation,
+    "@/lib/storage-service": storage,
   });
 }
 export function resourceFixture(options = {}) {
