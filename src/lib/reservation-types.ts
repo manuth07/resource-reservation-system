@@ -1,4 +1,8 @@
-import type { ReservationStatus } from "@/generated/prisma/enums";
+import type {
+  ApprovalDecision,
+  ApprovalStage,
+  ReservationStatus,
+} from "@/generated/prisma/enums";
 
 export type DisplayReservationStatus =
   | "CONFIRMED"
@@ -39,6 +43,18 @@ export type ReservationDepartmentSummary = {
   id: string;
   name: string;
   code: string;
+  headId?: string | null;
+};
+
+export type ApprovalRecord = {
+  id: string;
+  reservationId: string;
+  approverId: string;
+  stage: ApprovalStage;
+  decision: ApprovalDecision;
+  rejectionReason: string | null;
+  decidedAt: string;
+  approver: ReservationUserSummary;
 };
 
 export type ReservationRecord = {
@@ -60,6 +76,7 @@ export type ReservationRecord = {
   department: ReservationDepartmentSummary;
   requestedCategory: ReservationCategorySummary;
   resource: ReservationResourceSummary | null;
+  approvals: ApprovalRecord[];
 };
 
 export type DirectBookingInput = {
@@ -72,18 +89,25 @@ export type DirectBookingInput = {
 
 export type ReservationTabFilter = "upcoming" | "past" | "cancelled" | "all";
 
+export type AdminReservationQueueTab =
+  | "pending"
+  | "awaiting_hod"
+  | "approved"
+  | "all";
+
 export type ReservationListResult = {
   reservations: ReservationRecord[];
   total: number;
-  tab: ReservationTabFilter;
+  tab: string;
   page: number;
   pages: number;
 };
 
-export type ReservationField = "resourceId" | "date" | "startTime" | "endTime" | "purpose";
+export type ReservationField = "resourceId" | "date" | "startTime" | "endTime" | "purpose" | "rejectionReason";
 
 export type ReservationActionResult = {
   error?: string;
   fieldErrors?: Partial<Record<ReservationField, string>>;
   reservationId?: string;
+  isApprovalRequired?: boolean;
 };
