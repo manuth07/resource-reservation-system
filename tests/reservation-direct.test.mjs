@@ -500,7 +500,9 @@ test("createDirectReservation detects overlapping intervals and allows back-to-b
       endTime: "10:30",
       purpose: "Conflicting slot",
     }),
-    (err) => err.message.includes("already reserved during the requested time interval"),
+    (err) =>
+      err.field === undefined &&
+      err.message.includes("already booked for the selected time"),
   );
 
   // Back-to-back interval (immediately adjacent): 10:00 - 11:00 should succeed!
@@ -525,8 +527,8 @@ test("createDirectReservation translates PostgreSQL exclusion constraint violati
       purpose: "Concurrent race simulation",
     }),
     (err) =>
-      err.field === "startTime" &&
-      err.message.includes("already reserved during the requested time interval"),
+      err.field === undefined &&
+      err.message.includes("already booked for the selected time"),
   );
 });
 

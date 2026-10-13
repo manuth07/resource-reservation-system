@@ -96,7 +96,13 @@ export async function checkAvailabilityAction(
     const end = parseColomboDateTime(date, endTime, "endTime");
     validateBookingInterval(start, end);
     const result = await checkResourceAvailability(resourceId, start, end);
-    return { available: result.available };
+    if (!result.available) {
+      return {
+        available: false,
+        error: "This room is already booked for the selected time. Choose another time slot.",
+      };
+    }
+    return { available: true };
   } catch (error) {
     if (error instanceof ReservationError) {
       return { available: false, error: error.message };

@@ -49,39 +49,36 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
   const [endTime, setEndTime] = useState("10:00");
   const [purpose, setPurpose] = useState("");
 
-  const [availabilityState, setAvailabilityState] = useState<{
-    checked: boolean;
-    available: boolean;
-    message?: string;
-  }>({ checked: false, available: false });
+  // Availability checking state
+  const [availabilityState, setAvailabilityState] = useState<"idle" | "available" | "unavailable">("idle");
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [dismissedServerError, setDismissedServerError] = useState<string | null>(null);
   const [isChecking, startCheckingTransition] = useTransition();
 
   const errors = state.fieldErrors ?? {};
 
+  // Form-level error: active if check returned an error, or if server action returned an error not yet dismissed by input change
+  const activeTopError =
+    checkError ||
+    (state.error && state.error !== dismissedServerError ? state.error : null);
+
   const handleCheckAvailability = () => {
     if (!date || !startTime || !endTime) {
-      setAvailabilityState({
-        checked: true,
-        available: false,
-        message: "Please enter date, start time, and end time to check availability.",
-      });
+      setCheckError("Please specify a booking date, start time, and end time to verify availability.");
+      setAvailabilityState("unavailable");
       return;
     }
 
     startCheckingTransition(async () => {
+      setCheckError(null);
       const res = await checkAvailabilityAction(resource.id, date, startTime, endTime);
       if (res.available) {
-        setAvailabilityState({
-          checked: true,
-          available: true,
-          message: "Slot is available for booking.",
-        });
+        setAvailabilityState("available");
+        setCheckError(null);
       } else {
-        setAvailabilityState({
-          checked: true,
-          available: false,
-          message: res.error ?? "Resource is already reserved during this time interval.",
-        });
+        setAvailabilityState("unavailable");
+        // Display conflict error only once, in the top error banner
+        setCheckError(res.error ?? "This room is already booked for the selected time. Choose another time slot.");
       }
     });
   };
@@ -90,9 +87,12 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
     if (type === "date") setDate(val);
     if (type === "start") setStartTime(val);
     if (type === "end") setEndTime(val);
-    // Reset checked status when times change
-    if (availabilityState.checked) {
-      setAvailabilityState({ checked: false, available: false });
+
+    // Stale availability results and conflict errors must not remain valid after input changes
+    setAvailabilityState("idle");
+    setCheckError(null);
+    if (state.error) {
+      setDismissedServerError(state.error);
     }
   };
 
@@ -108,9 +108,19 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
             </div>
             <h2 className="mt-1 text-xl font-semibold text-foreground">{resource.name}</h2>
             <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-secondary">
-              {resource.location && <span>Location: <strong className="text-foreground">{resource.location}</strong></span>}
-              {resource.capacity && <span>Capacity: <strong className="text-foreground tabular-nums">{resource.capacity} people</strong></span>}
-              <span>Policy: <strong className="text-foreground">Direct booking (immediate confirmation)</strong></span>
+              {resource.location && (
+                <span>
+                  Location: <strong className="text-foreground">{resource.location}</strong>
+                </span>
+              )}
+              {resource.capacity && (
+                <span>
+                  Capacity: <strong className="text-foreground tabular-nums">{resource.capacity} people</strong>
+                </span>
+              )}
+              <span>
+                Policy: <strong className="text-foreground">Direct booking</strong>
+              </span>
             </div>
           </div>
         </div>
@@ -130,11 +140,16 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
         >
           <input type="hidden" name="resourceId" value={resource.id} />
 
-          {state.error && <Feedback tone="danger">{state.error}</Feedback>}
+          {/* Single accessible top-level error banner for booking conflicts and server errors */}
+          {activeTopError && (
+            <Feedback tone="danger">
+              {activeTopError}
+            </Feedback>
+          )}
 
-          <div className="rounded border border-border bg-table-header p-4 text-xs text-secondary">
+          <div className="rounded border border-border bg-table-header p-3 text-xs text-secondary">
             <p className="font-medium text-foreground">Timezone notice</p>
-            <p className="mt-1">
+            <p className="mt-0.5">
               All reservations are scheduled according to organizational headquarters time (
               <strong>{COLOMBO_TIMEZONE}</strong>, UTC+05:30).
             </p>
@@ -146,7 +161,6 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
               label="Booking date"
               required
               error={errors.date}
-              hint="Format: YYYY-MM-DD"
             >
               <Input
                 id="date"
@@ -157,7 +171,7 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
                 value={date}
                 onChange={(e) => handleTimeChange("date", e.target.value)}
                 aria-invalid={!!errors.date}
-                aria-describedby={errors.date ? "date-error" : "date-hint"}
+                aria-describedby={errors.date ? "date-error" : undefined}
               />
             </FormField>
 
@@ -166,7 +180,6 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
               label="Start time"
               required
               error={errors.startTime}
-              hint="Format: HH:mm (24-hour)"
             >
               <Input
                 id="startTime"
@@ -176,7 +189,7 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
                 value={startTime}
                 onChange={(e) => handleTimeChange("start", e.target.value)}
                 aria-invalid={!!errors.startTime}
-                aria-describedby={errors.startTime ? "startTime-error" : "startTime-hint"}
+                aria-describedby={errors.startTime ? "startTime-error" : undefined}
               />
             </FormField>
 
@@ -185,7 +198,6 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
               label="End time"
               required
               error={errors.endTime}
-              hint="Format: HH:mm (24-hour)"
             >
               <Input
                 id="endTime"
@@ -195,12 +207,12 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
                 value={endTime}
                 onChange={(e) => handleTimeChange("end", e.target.value)}
                 aria-invalid={!!errors.endTime}
-                aria-describedby={errors.endTime ? "endTime-error" : "endTime-hint"}
+                aria-describedby={errors.endTime ? "endTime-error" : undefined}
               />
             </FormField>
           </div>
 
-          {/* Availability check helper */}
+          {/* Availability check control */}
           <div className="flex flex-wrap items-center gap-4 rounded border border-border p-4">
             <Button
               type="button"
@@ -211,16 +223,22 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
             >
               {isChecking ? "Checking availability…" : "Check slot availability"}
             </Button>
-            {availabilityState.checked && (
-              <span
-                role="status"
-                className={`text-sm ${
-                  availabilityState.available ? "text-success font-medium" : "text-danger"
-                }`}
-              >
-                {availabilityState.message}
+
+            {/* Clear loading state */}
+            {isChecking && (
+              <span role="status" className="text-sm text-secondary">
+                Checking availability…
               </span>
             )}
+
+            {/* One concise green success indicator near the availability control */}
+            {!isChecking && availabilityState === "available" && (
+              <span role="status" className="text-sm font-medium text-success">
+                Slot is available
+              </span>
+            )}
+
+            {/* Neutral state when idle or when unavailable (conflict is displayed once in top banner) */}
           </div>
 
           <FormField

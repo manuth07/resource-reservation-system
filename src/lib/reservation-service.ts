@@ -255,8 +255,7 @@ export async function createDirectReservation(input: DirectBookingInput) {
 
         if (conflict) {
           throw new ReservationError(
-            "This resource is already reserved during the requested time interval. Please choose another time slot.",
-            "startTime",
+            "This room is already booked for the selected time. Choose another time slot.",
           );
         }
 
@@ -284,8 +283,7 @@ export async function createDirectReservation(input: DirectBookingInput) {
   } catch (error) {
     if (isExclusionConflict(error)) {
       throw new ReservationError(
-        "This resource is already reserved during the requested time interval. Please choose another time slot.",
-        "startTime",
+        "This room is already booked for the selected time. Choose another time slot.",
       );
     }
     throw error;
