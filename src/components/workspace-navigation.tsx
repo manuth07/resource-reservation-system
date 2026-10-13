@@ -9,21 +9,55 @@ const workspaceItems = [
   { href: "/resources", label: "Resource catalog" },
   { href: "/reservations", label: "My reservations" },
 ];
-const adminItems = [{ href: "/admin/resources", label: "Resources" }, { href: "/admin/resource-categories", label: "Categories" }, { href: "/admin/employees", label: "Employees" }];
+const departmentItems = [
+  { href: "/department/approvals", label: "Approval queue" },
+];
+const adminItems = [
+  { href: "/admin/reservations", label: "Reservation requests" },
+  { href: "/admin/resources", label: "Resources" },
+  { href: "/admin/resource-categories", label: "Categories" },
+  { href: "/admin/employees", label: "Employees" },
+];
 const currentItem = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 export function WorkspaceSectionLabel() {
   const pathname = usePathname();
-  const section = [...workspaceItems, ...adminItems].find((item) => currentItem(pathname, item.href))?.label ?? "Workspace";
-  return <p className="workspace-context"><span>{pathname.startsWith("/admin/") ? "Administration" : "Workspace"}</span><span aria-hidden="true">/</span><span className="font-medium text-foreground">{section}</span></p>;
+  const section =
+    [...workspaceItems, ...departmentItems, ...adminItems].find((item) =>
+      currentItem(pathname, item.href),
+    )?.label ?? "Workspace";
+  const parent = pathname.startsWith("/admin/")
+    ? "Administration"
+    : pathname.startsWith("/department/")
+      ? "Department"
+      : "Workspace";
+  return (
+    <p className="workspace-context">
+      <span>{parent}</span>
+      <span aria-hidden="true">/</span>
+      <span className="font-medium text-foreground">{section}</span>
+    </p>
+  );
 }
 
-export function WorkspaceNavigation({ isAdmin, mobile = false }: { isAdmin: boolean; mobile?: boolean }) {
+export function WorkspaceNavigation({
+  isAdmin,
+  isDepartmentHead = false,
+  mobile = false,
+}: {
+  isAdmin: boolean;
+  isDepartmentHead?: boolean;
+  mobile?: boolean;
+}) {
   const pathname = usePathname();
   const disclosure = useRef<HTMLDetailsElement>(null);
   const summary = useRef<HTMLElement>(null);
   const close = () => { if (disclosure.current) disclosure.current.open = false; };
-  const groups = [{ label: "Workspace", items: workspaceItems }, ...(isAdmin ? [{ label: "Administration", items: adminItems }] : [])];
+  const groups = [
+    { label: "Workspace", items: workspaceItems },
+    ...(isDepartmentHead ? [{ label: "Department", items: departmentItems }] : []),
+    ...(isAdmin ? [{ label: "Administration", items: adminItems }] : []),
+  ];
   const navigation = <nav aria-label={mobile ? "Mobile workspace navigation" : "Workspace navigation"} className="app-navigation">
     {groups.map((group) => <div key={group.label} className="navigation-group">
       <p className="navigation-label">{group.label}</p>

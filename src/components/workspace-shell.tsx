@@ -9,12 +9,14 @@ export function WorkspaceShell({
   employeeId,
   roleLabel,
   isAdmin,
+  isDepartmentHead = false,
   logoutAction,
 }: {
   children: ReactNode;
   employeeId: string;
   roleLabel: string;
   isAdmin: boolean;
+  isDepartmentHead?: boolean;
   logoutAction: () => Promise<void>;
 }) {
   const initials = employeeId.slice(0, 2).toUpperCase();
@@ -34,7 +36,7 @@ export function WorkspaceShell({
           <p className="sidebar-caption">Resource reservation</p>
         </div>
 
-        <WorkspaceNavigation isAdmin={isAdmin} />
+        <WorkspaceNavigation isAdmin={isAdmin} isDepartmentHead={isDepartmentHead} />
 
         {/* Single Account Control in the sidebar footer */}
         <div className="sidebar-footer">
@@ -70,7 +72,7 @@ export function WorkspaceShell({
         {/* Clean Topbar: Breadcrumb context on desktop, mobile drawer on mobile */}
         <header className="workspace-topbar">
           <div className="workspace-topbar-start">
-            <WorkspaceNavigation isAdmin={isAdmin} mobile />
+            <WorkspaceNavigation isAdmin={isAdmin} isDepartmentHead={isDepartmentHead} mobile />
             <WorkspaceSectionLabel />
           </div>
 
