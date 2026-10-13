@@ -27,6 +27,8 @@ async function ResourceDetailContent({ params }: Props) {
 
   const isDirectBookingEligible =
     resource.isActive && !resource.requiresApproval && !resource.category.isVehicle;
+  const isRequestEligible =
+    resource.isActive && resource.requiresApproval && !resource.category.isVehicle;
 
   return (
     <>
@@ -44,10 +46,18 @@ async function ResourceDetailContent({ params }: Props) {
                 Book resource
               </Link>
             )}
+            {isRequestEligible && (
+              <Link
+                className="button button-primary"
+                href={`/resources/${resource.id}/book`}
+              >
+                Request reservation
+              </Link>
+            )}
             {user.role === "ADMIN" && (
               <Link
                 className={
-                  isDirectBookingEligible
+                  isDirectBookingEligible || isRequestEligible
                     ? "button button-secondary"
                     : "button button-primary"
                 }
@@ -170,9 +180,9 @@ async function ResourceDetailContent({ params }: Props) {
           )}
 
           {resource.isActive && !resource.category.isVehicle && resource.requiresApproval && (
-            <Feedback tone="info" className="mt-2">
-              This resource requires supervisory review and approval before booking. Direct booking is not permitted.
-            </Feedback>
+            <p className="text-xs text-secondary pt-1">
+              Approval required. Submitting a reservation request initiates administrative review and Department Head approval before final confirmation.
+            </p>
           )}
         </div>
       </Card>

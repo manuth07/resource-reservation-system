@@ -20,10 +20,12 @@ import {
   formatColomboTime,
 } from "@/lib/reservation-validation";
 import { ReservationCancelControl } from "@/components/reservation-cancel-control";
+import { ApprovalControls } from "@/components/approval-controls";
+import { ApprovalTimeline } from "@/components/approval-timeline";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; requested?: string }>;
 };
 
 export default function ReservationDetailPage(props: Props) {
@@ -62,11 +64,11 @@ function getStatusLabel(status: DisplayReservationStatus): string {
     case "CANCELLED":
       return "Cancelled";
     case "PENDING":
-      return "Pending";
+      return "Pending review";
     case "AWAITING_APPROVAL":
-      return "Awaiting approval";
+      return "Awaiting HOD approval";
     case "APPROVED":
-      return "Approved";
+      return "Approved (Ready to confirm)";
     case "REJECTED":
       return "Rejected";
     default:
@@ -79,7 +81,7 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
   const user = await requirePageUser();
 
   const { id } = await params;
-  const { created } = await searchParams;
+  const { created, requested } = await searchParams;
 
   const reservation = await getReservation(id);
 
@@ -87,10 +89,19 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
     notFound();
   }
 
+  const isOwner = user.id === reservation.requesterId;
+  const isAdmin = user.role === "ADMIN";
+  const isDepartmentHeadForReservation =
+    user.role === "DEPARTMENT_HEAD" &&
+    reservation.department.headId === user.id;
+
   const canCancel =
-    (user.id === reservation.requesterId || user.role === "ADMIN") &&
-    reservation.status === "CONFIRMED" &&
-    reservation.displayStatus !== "COMPLETED";
+    (isOwner || isAdmin) &&
+    (reservation.status === "PENDING" ||
+      reservation.status === "AWAITING_APPROVAL" ||
+      reservation.status === "APPROVED" ||
+      (reservation.status === "CONFIRMED" &&
+        reservation.displayStatus !== "COMPLETED"));
 
   const tone = getStatusTone(reservation.displayStatus);
   const statusLabel = getStatusLabel(reservation.displayStatus);
@@ -105,7 +116,7 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
       <PageHeader
         section="Reservations"
         title={reservation.resource?.name ?? "Resource reservation"}
-        description={`Booking Reference: ${reservation.id}`}
+        description={`Reference ID: ${reservation.id}`}
         action={
           <div className="flex items-center gap-2">
             <StatusBadge tone={tone}>{statusLabel}</StatusBadge>
@@ -128,7 +139,22 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
           </Feedback>
         )}
 
-        {/* Primary Reservation Information */}
+        {requested === "1" && (
+          <Feedback tone="info">
+            Your reservation request has been submitted successfully and is now pending administrative review. You will see progress updates on this page as decisions are recorded.
+          </Feedback>
+        )}
+
+        {/* Approval Decision Controls for Authorized Admins or HODs */}
+        <ApprovalControls
+          reservationId={reservation.id}
+          status={reservation.status}
+          userRole={user.role}
+          isDepartmentHeadForReservation={isDepartmentHeadForReservation}
+          isRequester={isOwner}
+        />
+
+        {/* Primary Schedule & Timing Information */}
         <Card className="p-6 sm:p-8 space-y-6">
           <h2 className="section-title">Schedule and timing</h2>
           <dl className="grid gap-6 sm:grid-cols-2">
@@ -145,7 +171,7 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
               </dd>
             </div>
             <div>
-              <dt className="form-label">Created on</dt>
+              <dt className="form-label">Submitted on</dt>
               <dd className="mt-1 text-sm text-secondary tabular-nums">
                 {createdAtStr}
               </dd>
@@ -159,7 +185,10 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
           </dl>
         </Card>
 
-        {/* Resource Information */}
+        {/* Multi-stage Approval Audit Workflow */}
+        <ApprovalTimeline reservation={reservation} />
+
+        {/* Resource Details */}
         <Card className="p-6 sm:p-8 space-y-6">
           <h2 className="section-title">Reserved resource</h2>
           {reservation.resource ? (
@@ -194,6 +223,14 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
                   {reservation.resource.capacity ? `${reservation.resource.capacity} people` : "Not specified"}
                 </dd>
               </div>
+              <div>
+                <dt className="form-label">Approval policy</dt>
+                <dd className="mt-1 text-sm text-secondary">
+                  {reservation.resource.requiresApproval
+                    ? "Requires Department Head and Admin approval"
+                    : "Direct booking eligible"}
+                </dd>
+              </div>
             </dl>
           ) : (
             <p className="text-secondary text-sm">
@@ -207,7 +244,7 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
           <h2 className="section-title">Booking party & department</h2>
           <dl className="grid gap-6 sm:grid-cols-2">
             <div>
-              <dt className="form-label">Reserved by</dt>
+              <dt className="form-label">Requested by</dt>
               <dd className="mt-1 text-sm text-foreground">
                 <strong>{reservation.requester.name}</strong> ({reservation.requester.employeeId})
               </dd>
@@ -219,7 +256,7 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
                 {reservation.department.name} ({reservation.department.code})
               </dd>
               <dd className="text-xs text-muted">
-                Recorded at time of booking to preserve organizational audit trails.
+                Recorded at time of request to preserve organizational audit trails.
               </dd>
             </div>
           </dl>
@@ -240,10 +277,14 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    Need to release this reservation?
+                    {reservation.status === "CONFIRMED"
+                      ? "Need to release this reservation?"
+                      : "Withdraw this reservation request?"}
                   </p>
                   <p className="text-xs text-secondary mt-0.5">
-                    Cancelling immediately frees the resource for other team members.
+                    {reservation.status === "CONFIRMED"
+                      ? "Cancelling immediately frees the resource for other team members."
+                      : "Withdrawing cancels your request and marks it as cancelled in the queue."}
                   </p>
                 </div>
                 <ReservationCancelControl reservationId={reservation.id} />
@@ -254,7 +295,11 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
               </p>
             ) : reservation.status === "CANCELLED" ? (
               <p className="text-sm text-secondary">
-                This reservation was cancelled. The resource was released for new bookings.
+                This reservation was cancelled. Historical records are preserved.
+              </p>
+            ) : reservation.status === "REJECTED" ? (
+              <p className="text-sm text-secondary">
+                This request was rejected. See the audit workflow above for details and reviewer notes.
               </p>
             ) : (
               <p className="text-sm text-secondary">

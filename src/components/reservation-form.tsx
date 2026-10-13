@@ -5,6 +5,7 @@ import { NavigationLink as Link } from "@/components/navigation-link";
 import {
   checkAvailabilityAction,
   createDirectBookingAction,
+  createReservationRequestAction,
 } from "@/app/reservation-actions";
 import {
   Button,
@@ -25,6 +26,7 @@ type EligibleResourceProp = {
   resourceCode: string;
   location: string | null;
   capacity: number | null;
+  requiresApproval?: boolean;
   category: {
     id: string;
     name: string;
@@ -34,8 +36,13 @@ type EligibleResourceProp = {
 };
 
 export function ReservationForm({ resource }: { resource: EligibleResourceProp }) {
+  const isRequest = !!resource.requiresApproval;
+  const actionHandler = isRequest
+    ? createReservationRequestAction
+    : createDirectBookingAction;
+
   const [state, action, pending] = useActionState(
-    createDirectBookingAction,
+    actionHandler,
     {} as ReservationActionResult,
   );
   const submission = useSubmissionLock(pending);
@@ -119,14 +126,19 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
                 </span>
               )}
               <span>
-                Policy: <strong className="text-foreground">Direct booking</strong>
+                Policy:{" "}
+                <strong className="text-foreground">
+                  {isRequest
+                    ? "Approval required (Admin review → HOD approval → Admin confirmation)"
+                    : "Direct booking (immediate confirmation)"}
+                </strong>
               </span>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Booking form */}
+      {/* Booking / Request form */}
       <Card className="p-6 sm:p-8">
         <form
           ref={form}
@@ -259,9 +271,19 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
               className="field min-h-24 resize-y"
               aria-invalid={!!errors.purpose}
               aria-describedby={errors.purpose ? "purpose-error" : "purpose-hint"}
-              placeholder="e.g. Q4 Department Planning Meeting with regional directors"
+              placeholder={
+                isRequest
+                  ? "e.g. Training session for new engineering cohort on platform architecture"
+                  : "e.g. Q4 Department Planning Meeting with regional directors"
+              }
             />
           </FormField>
+
+          {isRequest && (
+            <p className="text-xs text-secondary">
+              Submitting this request will not confirm the reservation immediately. It will be routed for administrative review and Department Head approval.
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-6">
             <Link
@@ -271,7 +293,13 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
               Cancel
             </Link>
             <Button type="submit" disabled={pending}>
-              {pending ? "Confirming reservation…" : "Confirm direct reservation"}
+              {pending
+                ? isRequest
+                  ? "Submitting request…"
+                  : "Confirming reservation…"
+                : isRequest
+                  ? "Submit reservation request"
+                  : "Confirm direct reservation"}
             </Button>
           </div>
         </form>
