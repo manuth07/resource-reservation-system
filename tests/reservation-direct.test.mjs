@@ -167,6 +167,9 @@ function createMockReservationFixture(options = {}) {
         if (value.not !== undefined) {
           return row[key] !== value.not;
         }
+        if (Array.isArray(value.in)) {
+          return value.in.includes(row[key]);
+        }
       }
       return row[key] === value;
     });
