@@ -13,10 +13,11 @@ const departmentItems = [
   { href: "/department/approvals", label: "Approval queue" },
 ];
 const adminItems = [
-  { href: "/admin/reservations", label: "Reservation requests" },
   { href: "/admin/resources", label: "Resources" },
   { href: "/admin/resource-categories", label: "Categories" },
   { href: "/admin/employees", label: "Employees" },
+  { href: "/admin/departments", label: "Departments" },
+  { href: "/admin/reservations", label: "Reservation requests" },
 ];
 const currentItem = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
