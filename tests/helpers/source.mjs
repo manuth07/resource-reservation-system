@@ -13,6 +13,10 @@ export function loadSource(path, mocks, env = { AUTH_SECRET: "test-only-secret-w
     require(name) {
       if (name === "server-only") return {};
       if (Object.hasOwn(mocks, name)) return mocks[name];
+      if (name === "next/image") return function MockImage(props) { return { type: "img", props }; };
+      if (name === "@vercel/blob") return { del: async () => {}, head: async () => ({}) };
+      if (name === "@vercel/blob/client") return { upload: async () => ({ url: "https://blob.mock-storage.local/resources/test.jpg", pathname: "resources/test.jpg" }), handleUpload: async () => ({}) };
+      if (name === "@/lib/storage-utils") return { isTrustedBlobUrl: (url) => typeof url === "string" && url.length > 0 };
       throw new Error(`Unexpected dependency: ${name}`);
     },
     process: { env }, Buffer, console, URL, AbortSignal, Request, Headers, Response,
