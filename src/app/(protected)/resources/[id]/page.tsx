@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { requirePageUser } from "@/lib/page-auth";
 import { getResource } from "@/lib/resource-service";
-import { Card, PageHeader, StatusBadge, CategoryBadge } from "@/components/ui";
+import { Card, PageHeader, StatusBadge, CategoryBadge, Feedback } from "@/components/ui";
 import { Suspense } from "react";
 import { PageLoading } from "@/components/page-loading";
 
@@ -25,6 +25,9 @@ async function ResourceDetailContent({ params }: Props) {
   const resource = await getResource((await params).id);
   if (!resource) notFound();
 
+  const isDirectBookingEligible =
+    resource.isActive && !resource.requiresApproval && !resource.category.isVehicle;
+
   return (
     <>
       <PageHeader
@@ -32,11 +35,28 @@ async function ResourceDetailContent({ params }: Props) {
         title={resource.name}
         description={resource.resourceCode}
         action={
-          user.role === "ADMIN" && (
-            <Link className="button button-primary" href={`/admin/resources/${resource.id}/edit`}>
-              Edit resource
-            </Link>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            {isDirectBookingEligible && (
+              <Link
+                className="button button-primary"
+                href={`/resources/${resource.id}/book`}
+              >
+                Book resource
+              </Link>
+            )}
+            {user.role === "ADMIN" && (
+              <Link
+                className={
+                  isDirectBookingEligible
+                    ? "button button-secondary"
+                    : "button button-primary"
+                }
+                href={`/admin/resources/${resource.id}/edit`}
+              >
+                Edit resource
+              </Link>
+            )}
+          </div>
         }
       />
       <Card className="max-w-3xl p-6 sm:p-8">
@@ -62,49 +82,99 @@ async function ResourceDetailContent({ params }: Props) {
             </div>
           </div>
         )}
-        <dl className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <dt className="form-label">Category</dt>
-            <dd className="mt-2 flex items-center gap-2">
-              <CategoryBadge category={resource.category} />
-              <span className="text-secondary text-sm">({resource.category.code})</span>
-            </dd>
-          </div>
-          <div>
-            <dt className="form-label">Operational status</dt>
-            <dd className="mt-2">
-              <StatusBadge tone={resource.isActive ? "success" : "neutral"}>
-                {resource.isActive ? "Active" : "Inactive"}
-              </StatusBadge>
-            </dd>
-          </div>
-          <div>
-            <dt className="form-label">Capacity</dt>
-            <dd className="mt-2 tabular-nums font-medium">{resource.capacity ?? "Not specified"}</dd>
-          </div>
-          {!resource.category.isVehicle && (
-            <div>
-              <dt className="form-label">Location</dt>
-              <dd className="mt-2">{resource.location ?? "Not specified"}</dd>
+
+        {/* Section 1: Resource Overview */}
+        <div className="space-y-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary">
+            Resource overview
+          </h2>
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <dt className="text-xs font-medium text-muted">Category</dt>
+              <dd className="flex items-center gap-2">
+                <CategoryBadge category={resource.category} />
+                <span className="font-mono text-xs text-secondary">({resource.category.code})</span>
+              </dd>
             </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-xs font-medium text-muted">Status</dt>
+              <dd>
+                <StatusBadge tone={resource.isActive ? "success" : "neutral"}>
+                  {resource.isActive ? "Active" : "Inactive"}
+                </StatusBadge>
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-xs font-medium text-muted">Capacity</dt>
+              <dd className="text-sm font-semibold text-foreground tabular-nums">
+                {resource.capacity ? `${resource.capacity} people` : "Not specified"}
+              </dd>
+            </div>
+            {!resource.category.isVehicle && (
+              <div className="flex flex-col gap-1">
+                <dt className="text-xs font-medium text-muted">Location</dt>
+                <dd className="text-sm font-semibold text-foreground">
+                  {resource.location ?? "Not specified"}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+
+        {/* Subtle section divider */}
+        <hr className="my-6 border-border" />
+
+        {/* Section 2: Booking Information */}
+        <div className="space-y-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary">
+            Booking information
+          </h2>
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <dt className="text-xs font-medium text-muted">Booking type</dt>
+              <dd className="text-sm font-semibold text-foreground">
+                {resource.category.isVehicle
+                  ? "Vehicle allocation (managed)"
+                  : isDirectBookingEligible
+                    ? "Direct booking"
+                    : "Supervised request"}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-xs font-medium text-muted">Approval</dt>
+              <dd>
+                <StatusBadge tone={resource.requiresApproval ? "warning" : "accent"}>
+                  {resource.requiresApproval ? "Approval required" : "Not required"}
+                </StatusBadge>
+              </dd>
+            </div>
+          </dl>
+
+          {/* Compact policy note / alerts */}
+          {isDirectBookingEligible && (
+            <p className="text-xs text-secondary pt-1">
+              Direct booking is enabled. Reservations are confirmed immediately upon submission without requiring managerial approval.
+            </p>
           )}
-          <div>
-            <dt className="form-label">Approval policy</dt>
-            <dd className="mt-2">
-              <StatusBadge tone={resource.requiresApproval ? "warning" : "accent"}>
-                {resource.requiresApproval ? "Approval required" : "Direct booking policy"}
-              </StatusBadge>
-            </dd>
-          </div>
-          <div>
-            <dt className="form-label">Resource type</dt>
-            <dd className="mt-2">{resource.category.isVehicle ? "Vehicle / Transport" : "Standard resource"}</dd>
-          </div>
-        </dl>
-        <p className="feedback feedback-info mt-8">
-          Operational status does not indicate availability at a particular date or time. Booking is not implemented yet.
-          {resource.category.isVehicle && " Vehicle requests will require administrator assignment of a specific vehicle and driver."}
-        </p>
+
+          {!resource.isActive && (
+            <Feedback tone="warning" className="mt-2">
+              This resource is currently marked inactive and cannot be reserved.
+            </Feedback>
+          )}
+
+          {resource.isActive && resource.category.isVehicle && (
+            <Feedback tone="info" className="mt-2">
+              Vehicle resources cannot be reserved directly. Transport requests require vehicle and driver allocation.
+            </Feedback>
+          )}
+
+          {resource.isActive && !resource.category.isVehicle && resource.requiresApproval && (
+            <Feedback tone="info" className="mt-2">
+              This resource requires supervisory review and approval before booking. Direct booking is not permitted.
+            </Feedback>
+          )}
+        </div>
       </Card>
       <Link href="/resources" className="text-link mt-6 inline-block">
         Back to resource catalog
