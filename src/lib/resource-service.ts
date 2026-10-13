@@ -6,8 +6,10 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { ResourceManagementError, booleanValue, literalSearch, parseCategory, parseResource, parseResourceFilters, resourceId, revision, validResourceId } from "@/lib/resource-validation";
 import type { CategoryRecord, ResourceCategoryOption, ResourceRecord } from "@/lib/resource-types";
 
+import { deleteBlobSafe, verifyAndInspectBlobUrl } from "@/lib/storage-service";
+
 const categorySelect = { id: true, name: true, code: true, isVehicle: true } as const;
-const resourceSelect = { id: true, name: true, resourceCode: true, categoryId: true, capacity: true, location: true, isActive: true, requiresApproval: true, updatedAt: true, category: { select: categorySelect } } as const;
+const resourceSelect = { id: true, name: true, resourceCode: true, categoryId: true, capacity: true, location: true, isActive: true, requiresApproval: true, imageUrl: true, imagePath: true, updatedAt: true, category: { select: categorySelect } } as const;
 const categoryAdminSelect = { ...categorySelect, description: true, updatedAt: true, _count: { select: { resources: true, reservations: true } } } as const;
 function categoryDto(row: Prisma.ResourceCategoryGetPayload<{ select: typeof categoryAdminSelect }>): CategoryRecord {
   return { id: row.id, name: row.name, code: row.code, description: row.description, isVehicle: row.isVehicle, updatedAt: row.updatedAt.toISOString(), resourceCount: row._count.resources, reservationCount: row._count.reservations };
@@ -125,33 +127,101 @@ export async function saveCategory(input: Record<string, unknown>, id?: string, 
 export async function saveResource(input: Record<string, unknown>, id?: string, expectedRevision?: string) {
   let attemptedCode = "";
   const codeConflict = () => new ResourceManagementError(`Resource code ${attemptedCode} is already in use. Enter a unique code.`, "resourceCode");
-  return mutation(async (tx) => {
-    const data = parseResource(input);
-    attemptedCode = data.resourceCode;
-    if (id) resourceId(id);
-    const duplicates = await tx.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "public"."Resource" WHERE upper(btrim("resourceCode")) = ${data.resourceCode}
-        AND (${id ?? null}::uuid IS NULL OR "id" <> ${id ?? null}::uuid) LIMIT 1
-    `;
-    if (duplicates.length) throw codeConflict();
-    if (id) await tx.$queryRaw`SELECT "id" FROM "public"."Resource" WHERE "id" = ${id}::uuid FOR UPDATE`;
-    const current = id ? await tx.resource.findUnique({ where: { id } }) : null;
-    if (id && !current) throw new ResourceManagementError("Resource not found.");
-    if (current) unchanged(current.updatedAt, expectedRevision);
-    for (const category of [...new Set([data.categoryId, ...(current ? [current.categoryId] : [])])].sort()) {
-      await tx.$queryRaw`SELECT "id" FROM "public"."ResourceCategory" WHERE "id" = ${category}::uuid FOR UPDATE`;
+  let oldImageToDelete: string | null = null;
+  let newImageToCleanIfFailed: string | null = null;
+
+  try {
+    const result = await mutation(async (tx) => {
+      const data = parseResource(input);
+      attemptedCode = data.resourceCode;
+      if (id) resourceId(id);
+      const duplicates = await tx.$queryRaw<{ id: string }[]>`
+        SELECT "id" FROM "public"."Resource" WHERE upper(btrim("resourceCode")) = ${data.resourceCode}
+          AND (${id ?? null}::uuid IS NULL OR "id" <> ${id ?? null}::uuid) LIMIT 1
+      `;
+      if (duplicates.length) throw codeConflict();
+      if (id) await tx.$queryRaw`SELECT "id" FROM "public"."Resource" WHERE "id" = ${id}::uuid FOR UPDATE`;
+      const current = id ? await tx.resource.findUnique({ where: { id } }) : null;
+      if (id && !current) throw new ResourceManagementError("Resource not found.");
+      if (current) unchanged(current.updatedAt, expectedRevision);
+      for (const category of [...new Set([data.categoryId, ...(current ? [current.categoryId] : [])])].sort()) {
+        await tx.$queryRaw`SELECT "id" FROM "public"."ResourceCategory" WHERE "id" = ${category}::uuid FOR UPDATE`;
+      }
+      const category = await tx.resourceCategory.findUnique({ where: { id: data.categoryId }, select: categorySelect });
+      if (!category) throw new ResourceManagementError("Choose an existing category.", "categoryId");
+      // Vehicle location is not editable in this workflow. Preserve legacy data
+      // in the transaction, even if a submitted form omits or clears the field.
+      if (current && category.isVehicle) data.location = current.location;
+      if (category.isVehicle && !data.requiresApproval) throw new ResourceManagementError("Vehicles must require approval and later administrator assignment.");
+      if (current && (data.categoryId !== current.categoryId || data.requiresApproval !== current.requiresApproval) && await policyReferences(tx, current.id, current.categoryId)) throw new ResourceManagementError("Reservation history or category-only requests prevent changing this resource's category or approval policy.");
+
+      // Image replacement & validation lifecycle
+      if ("imageUrl" in data) {
+        if (data.imageUrl && data.imageUrl !== current?.imageUrl) {
+          await verifyAndInspectBlobUrl(data.imageUrl);
+          newImageToCleanIfFailed = data.imageUrl;
+        }
+        if (current?.imageUrl && current.imageUrl !== data.imageUrl) {
+          oldImageToDelete = current.imageUrl;
+        }
+      }
+
+      if (!id) return tx.resource.create({ data, select: { id: true } });
+      await tx.resource.update({ where: { id }, data });
+      return { id };
+    }, codeConflict);
+
+    if (oldImageToDelete) {
+      await deleteBlobSafe(oldImageToDelete);
     }
-    const category = await tx.resourceCategory.findUnique({ where: { id: data.categoryId }, select: categorySelect });
-    if (!category) throw new ResourceManagementError("Choose an existing category.", "categoryId");
-    // Vehicle location is not editable in this workflow. Preserve legacy data
-    // in the transaction, even if a submitted form omits or clears the field.
-    if (current && category.isVehicle) data.location = current.location;
-    if (category.isVehicle && !data.requiresApproval) throw new ResourceManagementError("Vehicles must require approval and later administrator assignment.");
-    if (current && (data.categoryId !== current.categoryId || data.requiresApproval !== current.requiresApproval) && await policyReferences(tx, current.id, current.categoryId)) throw new ResourceManagementError("Reservation history or category-only requests prevent changing this resource's category or approval policy.");
-    if (!id) return tx.resource.create({ data, select: { id: true } });
-    await tx.resource.update({ where: { id }, data });
+    return result;
+  } catch (error) {
+    if (newImageToCleanIfFailed) {
+      await deleteBlobSafe(newImageToCleanIfFailed);
+    }
+    throw error;
+  }
+}
+
+export async function attachResourcePhoto(id: string, imageUrl: string, imagePath: string, expectedRevision: string) {
+  resourceId(id);
+  await verifyAndInspectBlobUrl(imageUrl);
+  let oldImageToDelete: string | null = null;
+  const result = await mutation(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "public"."Resource" WHERE "id" = ${id}::uuid FOR UPDATE`;
+    const current = await tx.resource.findUnique({ where: { id } });
+    if (!current) throw new ResourceManagementError("Resource not found.");
+    unchanged(current.updatedAt, expectedRevision);
+    if (current.imageUrl && current.imageUrl !== imageUrl) {
+      oldImageToDelete = current.imageUrl;
+    }
+    await tx.resource.update({ where: { id }, data: { imageUrl, imagePath } });
+    return { id, imageUrl };
+  });
+  if (oldImageToDelete) {
+    await deleteBlobSafe(oldImageToDelete);
+  }
+  return result;
+}
+
+export async function removeResourcePhoto(id: string, expectedRevision: string) {
+  resourceId(id);
+  let oldImageToDelete: string | null = null;
+  const result = await mutation(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "public"."Resource" WHERE "id" = ${id}::uuid FOR UPDATE`;
+    const current = await tx.resource.findUnique({ where: { id } });
+    if (!current) throw new ResourceManagementError("Resource not found.");
+    unchanged(current.updatedAt, expectedRevision);
+    if (current.imageUrl) {
+      oldImageToDelete = current.imageUrl;
+    }
+    await tx.resource.update({ where: { id }, data: { imageUrl: null, imagePath: null } });
     return { id };
-  }, codeConflict);
+  });
+  if (oldImageToDelete) {
+    await deleteBlobSafe(oldImageToDelete);
+  }
+  return result;
 }
 export async function setResourceActive(id: string, active: boolean, expectedRevision: string) {
   return mutation(async (tx) => {

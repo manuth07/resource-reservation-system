@@ -97,6 +97,8 @@ model Resource {
   category         ResourceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   capacity         Int?
   location         String?
+  imageUrl         String?
+  imagePath        String?
   isActive         Boolean          @default(true)
   requiresApproval Boolean          @default(false)
   reservations     Reservation[]
