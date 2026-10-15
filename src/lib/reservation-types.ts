@@ -1,4 +1,8 @@
-import type { ReservationStatus } from "@/generated/prisma/enums";
+import type {
+  ApprovalDecision,
+  ApprovalStage,
+  ReservationStatus,
+} from "@/generated/prisma/enums";
 
 export type DisplayReservationStatus =
   | "CONFIRMED"
@@ -39,6 +43,24 @@ export type ReservationDepartmentSummary = {
   id: string;
   name: string;
   code: string;
+  headId?: string | null;
+};
+
+export type ApprovalRecord = {
+  id: string;
+  reservationId: string;
+  approverId: string;
+  stage: ApprovalStage;
+  decision: ApprovalDecision;
+  rejectionReason: string | null;
+  decidedAt: string;
+  approver: ReservationUserSummary;
+};
+
+export type ReservationDriverSummary = {
+  id: string;
+  name: string;
+  driverIdentifier: string;
 };
 
 export type ReservationRecord = {
@@ -52,6 +74,7 @@ export type ReservationRecord = {
   endTime: string;   // ISO 8601 UTC string
   purpose: string;
   destination: string | null;
+  passengerCount: number | null;
   status: ReservationStatus;
   displayStatus: DisplayReservationStatus;
   createdAt: string;
@@ -60,6 +83,8 @@ export type ReservationRecord = {
   department: ReservationDepartmentSummary;
   requestedCategory: ReservationCategorySummary;
   resource: ReservationResourceSummary | null;
+  driver: ReservationDriverSummary | null;
+  approvals: ApprovalRecord[];
 };
 
 export type DirectBookingInput = {
@@ -70,20 +95,55 @@ export type DirectBookingInput = {
   purpose: string;
 };
 
+export type VehicleRequestInput = {
+  categoryId: string;
+  date: string;       // YYYY-MM-DD
+  startTime: string;  // HH:mm
+  endTime: string;    // HH:mm
+  destination: string;
+  purpose: string;
+  passengerCount: number | string;
+};
+
 export type ReservationTabFilter = "upcoming" | "past" | "cancelled" | "all";
+
+export type AdminReservationQueueTab =
+  | "pending"
+  | "awaiting_hod"
+  | "approved"
+  | "all";
 
 export type ReservationListResult = {
   reservations: ReservationRecord[];
   total: number;
-  tab: ReservationTabFilter;
+  tab: string;
   page: number;
   pages: number;
 };
 
-export type ReservationField = "resourceId" | "date" | "startTime" | "endTime" | "purpose";
+export type ReservationField =
+  | "resourceId"
+  | "requestedCategoryId"
+  | "driverId"
+  | "date"
+  | "startTime"
+  | "endTime"
+  | "purpose"
+  | "rejectionReason"
+  | "destination"
+  | "passengerCount";
+
+export type AvailableVehicleSummary = {
+  id: string;
+  name: string;
+  resourceCode: string;
+  capacity: number | null;
+  imageUrl: string | null;
+};
 
 export type ReservationActionResult = {
   error?: string;
   fieldErrors?: Partial<Record<ReservationField, string>>;
   reservationId?: string;
+  isApprovalRequired?: boolean;
 };

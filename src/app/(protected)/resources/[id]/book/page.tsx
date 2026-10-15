@@ -12,7 +12,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export default function BookResourcePage(props: Props) {
   return (
-    <Suspense fallback={<PageLoading title="Direct reservation" variant="detail" />}>
+    <Suspense fallback={<PageLoading title="Reservation" variant="detail" />}>
       <BookResourceContent {...props} />
     </Suspense>
   );
@@ -29,18 +29,16 @@ async function BookResourceContent({ params }: Props) {
     notFound();
   }
 
-  // Check direct booking eligibility
   const isVehicle = resource.category.isVehicle;
   const isInactive = !resource.isActive;
-  const requiresApproval = resource.requiresApproval;
 
-  if (isVehicle || isInactive || requiresApproval) {
+  if (isVehicle || isInactive) {
     return (
       <>
         <PageHeader
-          section="Direct reservation"
-          title="Direct booking unavailable"
-          description={`Direct booking cannot be initiated for "${resource.name}".`}
+          section="Reservation"
+          title="Reservation unavailable"
+          description={`Reservations cannot be initiated for "${resource.name}".`}
         />
         <Card className="max-w-2xl p-6 sm:p-8 space-y-4">
           {isInactive && (
@@ -49,16 +47,21 @@ async function BookResourceContent({ params }: Props) {
             </p>
           )}
           {isVehicle && (
-            <p className="text-secondary">
-              Vehicle resources cannot be directly reserved. Vehicles and drivers must be allocated by administrators as part of the vehicle request workflow.
-            </p>
+            <div className="space-y-3">
+              <p className="text-secondary">
+                Vehicle resources cannot be directly reserved. Transport requests are submitted by vehicle category, and vehicles and drivers are allocated by administrators during approval and scheduling.
+              </p>
+              <div>
+                <Link
+                  href={`/transport/request?categoryId=${resource.category.id}`}
+                  className="button button-primary"
+                >
+                  Request transport
+                </Link>
+              </div>
+            </div>
           )}
-          {requiresApproval && (
-            <p className="text-secondary">
-              This resource requires supervisory review and approval before booking. Direct booking is not permitted.
-            </p>
-          )}
-          <div className="pt-4 border-t border-border">
+          <div className="pt-4 border-t border-border flex items-center gap-3">
             <Link
               href={`/resources/${resource.id}`}
               className="button button-secondary"
@@ -71,12 +74,18 @@ async function BookResourceContent({ params }: Props) {
     );
   }
 
+  const isApprovalRequired = resource.requiresApproval;
+
   return (
     <>
       <PageHeader
-        section="Direct reservation"
-        title={`Book ${resource.name}`}
-        description="Select an available time slot for immediate reservation confirmation."
+        section={isApprovalRequired ? "Reservation request" : "Direct reservation"}
+        title={isApprovalRequired ? `Request ${resource.name}` : `Book ${resource.name}`}
+        description={
+          isApprovalRequired
+            ? "Submit this reservation request for administrative review and Department Head approval."
+            : "Select an available time slot for immediate reservation confirmation."
+        }
       />
       <div className="max-w-3xl">
         <ReservationForm resource={resource} />

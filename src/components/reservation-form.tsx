@@ -5,6 +5,7 @@ import { NavigationLink as Link } from "@/components/navigation-link";
 import {
   checkAvailabilityAction,
   createDirectBookingAction,
+  createReservationRequestAction,
 } from "@/app/reservation-actions";
 import {
   Button,
@@ -13,6 +14,7 @@ import {
   Feedback,
   FormField,
   Input,
+  StatusBadge,
 } from "@/components/ui";
 import { useSubmissionLock } from "@/components/use-submission-lock";
 import { useValidationFocus } from "@/components/use-validation-focus";
@@ -25,6 +27,7 @@ type EligibleResourceProp = {
   resourceCode: string;
   location: string | null;
   capacity: number | null;
+  requiresApproval?: boolean;
   category: {
     id: string;
     name: string;
@@ -34,8 +37,13 @@ type EligibleResourceProp = {
 };
 
 export function ReservationForm({ resource }: { resource: EligibleResourceProp }) {
+  const isRequest = !!resource.requiresApproval;
+  const actionHandler = isRequest
+    ? createReservationRequestAction
+    : createDirectBookingAction;
+
   const [state, action, pending] = useActionState(
-    createDirectBookingAction,
+    actionHandler,
     {} as ReservationActionResult,
   );
   const submission = useSubmissionLock(pending);
@@ -98,35 +106,56 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
 
   return (
     <div className="space-y-6">
-      {/* Resource overview panel */}
+      {/* Resource specifications panel */}
       <Card className="p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <CategoryBadge category={resource.category} />
-              <span className="font-mono text-xs text-secondary">{resource.resourceCode}</span>
-            </div>
-            <h2 className="mt-1 text-xl font-semibold text-foreground">{resource.name}</h2>
-            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-secondary">
-              {resource.location && (
-                <span>
-                  Location: <strong className="text-foreground">{resource.location}</strong>
-                </span>
-              )}
-              {resource.capacity && (
-                <span>
-                  Capacity: <strong className="text-foreground tabular-nums">{resource.capacity} people</strong>
-                </span>
-              )}
-              <span>
-                Policy: <strong className="text-foreground">Direct booking</strong>
-              </span>
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-secondary">
+              Resource details
+            </span>
+            <span className="rounded bg-table-header px-2 py-0.5 font-mono text-xs font-medium text-secondary">
+              {resource.resourceCode}
+            </span>
           </div>
+          <CategoryBadge category={resource.category} />
+        </div>
+
+        <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <dt className="text-xs font-medium uppercase tracking-wider text-muted">Location</dt>
+            <dd className="text-sm font-semibold text-foreground">
+              {resource.location ?? "Not specified"}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-1">
+            <dt className="text-xs font-medium uppercase tracking-wider text-muted">Capacity</dt>
+            <dd className="text-sm font-semibold text-foreground tabular-nums">
+              {resource.capacity ? `${resource.capacity} people` : "Not specified"}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-1">
+            <dt className="text-xs font-medium uppercase tracking-wider text-muted">Booking policy</dt>
+            <dd className="mt-0.5">
+              <StatusBadge tone={isRequest ? "warning" : "accent"}>
+                {isRequest ? "Approval required" : "Direct booking"}
+              </StatusBadge>
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-4 border-t border-border/60 pt-3 text-xs text-secondary">
+          <span className="font-medium text-muted">
+            {isRequest ? "Approval workflow: " : "Availability: "}
+          </span>
+          <span>
+            {isRequest
+              ? "Admin review → Department Head approval → Admin confirmation"
+              : "Immediate reservation confirmation upon available slot selection"}
+          </span>
         </div>
       </Card>
 
-      {/* Booking form */}
+      {/* Booking / Request form */}
       <Card className="p-6 sm:p-8">
         <form
           ref={form}
@@ -259,9 +288,19 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
               className="field min-h-24 resize-y"
               aria-invalid={!!errors.purpose}
               aria-describedby={errors.purpose ? "purpose-error" : "purpose-hint"}
-              placeholder="e.g. Q4 Department Planning Meeting with regional directors"
+              placeholder={
+                isRequest
+                  ? "e.g. Training session for new engineering cohort on platform architecture"
+                  : "e.g. Q4 Department Planning Meeting with regional directors"
+              }
             />
           </FormField>
+
+          {isRequest && (
+            <p className="text-xs text-secondary">
+              Submitting this request will not confirm the reservation immediately. It will be routed for administrative review and Department Head approval.
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-6">
             <Link
@@ -271,7 +310,13 @@ export function ReservationForm({ resource }: { resource: EligibleResourceProp }
               Cancel
             </Link>
             <Button type="submit" disabled={pending}>
-              {pending ? "Confirming reservation…" : "Confirm direct reservation"}
+              {pending
+                ? isRequest
+                  ? "Submitting request…"
+                  : "Confirming reservation…"
+                : isRequest
+                  ? "Submit reservation request"
+                  : "Confirm direct reservation"}
             </Button>
           </div>
         </form>

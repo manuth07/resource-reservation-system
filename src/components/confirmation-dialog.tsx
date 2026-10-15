@@ -17,7 +17,7 @@ export function ConfirmationDialog({
 }: {
   open: boolean;
   title: string;
-  description: string;
+  description: React.ReactNode;
   confirmLabel: string;
   pending?: boolean;
   error?: string;
@@ -46,7 +46,7 @@ export function ConfirmationDialog({
   return (
     <dialog
       ref={dialog}
-      className="confirmation-dialog"
+      className="confirmation-dialog text-left whitespace-normal"
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}
       aria-busy={pending}
@@ -55,18 +55,18 @@ export function ConfirmationDialog({
         if (!pending) onCancel();
       }}
     >
-      <h2 id={`${id}-title`} className="section-title">
+      <h2 id={`${id}-title`} className="section-title text-left">
         {title}
       </h2>
-      <p id={`${id}-description`} className="mt-4 text-secondary">
+      <div id={`${id}-description`} className="mt-4 text-sm leading-relaxed text-secondary whitespace-pre-line text-left">
         {description}
-      </p>
+      </div>
       {error && (
-        <Feedback tone="danger" className="mt-4">
+        <Feedback tone="danger" className="mt-4 text-left">
           {error}
         </Feedback>
       )}
-      <p role="status" className={pending ? "mt-4 text-secondary" : "sr-only"}>
+      <p role="status" className={pending ? "mt-4 text-secondary text-left text-sm" : "sr-only"}>
         {pending ? pendingMessage : ""}
       </p>
       <div className="mt-6 flex flex-wrap justify-end gap-4">

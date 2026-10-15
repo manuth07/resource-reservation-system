@@ -11,7 +11,21 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
 async function ProtectedWorkspace({ children }: { children: ReactNode }) {
   await connection();
   const user = await requirePageUser();
-  return <WorkspaceShell employeeId={user.employeeId} roleLabel={user.role === "ADMIN" ? "Administrator" : user.role === "DEPARTMENT_HEAD" ? "Department Head" : "Employee"} isAdmin={user.role === "ADMIN"} logoutAction={logoutAction}>
-    <Suspense fallback={<PageLoading />}>{children}</Suspense>
-  </WorkspaceShell>;
+  return (
+    <WorkspaceShell
+      employeeId={user.employeeId}
+      roleLabel={
+        user.role === "ADMIN"
+          ? "Administrator"
+          : user.role === "DEPARTMENT_HEAD"
+            ? "Department Head"
+            : "Employee"
+      }
+      isAdmin={user.role === "ADMIN"}
+      isDepartmentHead={user.role === "DEPARTMENT_HEAD"}
+      logoutAction={logoutAction}
+    >
+      <Suspense fallback={<PageLoading />}>{children}</Suspense>
+    </WorkspaceShell>
+  );
 }

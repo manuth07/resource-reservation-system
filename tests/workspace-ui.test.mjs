@@ -17,7 +17,12 @@ test("navigation separates Workspace and Administration and hides Admin links fo
     const { WorkspaceNavigation } = navigation("/admin/resource-categories/new");
     const html = renderToStaticMarkup(React.createElement(WorkspaceNavigation, { isAdmin: admin }));
     assert.match(html, /Workspace/); assert.match(html, /Resource catalog/);
-    if (admin) { assert.match(html, /Administration/); assert.match(html, /href="\/admin\/resource-categories" aria-current="page"/); }
+    if (admin) {
+      assert.match(html, /Resource management/);
+      assert.match(html, /Organization/);
+      assert.match(html, /Reservations/);
+      assert.match(html, /href="\/admin\/resource-categories" aria-current="page"/);
+    }
     else assert.doesNotMatch(html, /href="\/admin\//);
   }
   const { WorkspaceNavigation } = navigation("/resources/details");
@@ -78,3 +83,42 @@ test("category directory exposes real usage counts and classifications without c
   assert.match(html, /2 categories/); assert.match(html, /Standard resource/); assert.match(html, /Vehicle \/ Transport/);
   assert.match(html, /Classification protected/); assert.match(html, />Resources<\/th>/); assert.match(html, />Requests<\/th>/);
 });
+
+test("WorkspaceSectionLabel accurately renders 3-level breadcrumbs for Admin requests and Employee reservations", () => {
+  const { WorkspaceSectionLabel: AdminDetail } = navigation("/admin/reservations/res_123");
+  const adminHtml = renderToStaticMarkup(React.createElement(AdminDetail));
+  assert.match(adminHtml, /Administration/);
+  assert.match(adminHtml, /Reservation requests/);
+  assert.match(adminHtml, /Request details/);
+
+  const { WorkspaceSectionLabel: EmployeeDetail } = navigation("/reservations/res_123");
+  const employeeHtml = renderToStaticMarkup(React.createElement(EmployeeDetail));
+  assert.match(employeeHtml, /Workspace/);
+  assert.match(employeeHtml, /My reservations/);
+  assert.match(employeeHtml, /Reservation details/);
+
+  const { WorkspaceSectionLabel: AdminQueue } = navigation("/admin/reservations");
+  const queueHtml = renderToStaticMarkup(React.createElement(AdminQueue));
+  assert.match(queueHtml, /Administration/);
+  assert.match(queueHtml, /Reservation requests/);
+  assert.doesNotMatch(queueHtml, /Request details/);
+});
+
+test("ReservationCancelControl renders resource-specific copy preserving history", () => {
+  const { ReservationCancelControl } = loadSource("src/components/reservation-cancel-control.tsx", {
+    react: React,
+    "react/jsx-runtime": jsxRuntime,
+    "@/app/reservation-actions": { cancelReservationAction: async () => ({}) },
+    "@/components/ui": ui,
+    "@/components/confirmation-dialog": {
+      ConfirmationDialog: ({ description }) => React.createElement("div", { "data-description": description }),
+    },
+  });
+
+  const standardHtml = renderToStaticMarkup(React.createElement(ReservationCancelControl, { reservationId: "r1", isVehicle: false }));
+  assert.match(standardHtml, /The reserved resource will immediately become available for other employees to book\. Cancelled reservations remain in your history\./);
+
+  const vehicleHtml = renderToStaticMarkup(React.createElement(ReservationCancelControl, { reservationId: "r2", isVehicle: true }));
+  assert.match(vehicleHtml, /The assigned vehicle and driver will be released immediately for other bookings\. Cancelled reservations remain in your history\./);
+});
+

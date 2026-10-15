@@ -13,5 +13,20 @@ export default function ResourcesPage(props: Props) {
 async function ResourcesContent({ searchParams }: Props) {
   await connection();
   const user = await requirePageUser();
-  return <><PageHeader title="Resource catalog" description="Find and compare rooms, equipment and transport." action={user.role === "ADMIN" && <Link className="button button-secondary" href="/admin/resources">Manage resources</Link>} /><ResourceList searchParams={await searchParams} /></>;
+  return (
+    <>
+      <PageHeader
+        title="Resource catalog"
+        description="Find and compare rooms, equipment and transport."
+        action={
+          user.role === "ADMIN" ? (
+            <Link className="button button-secondary" href="/admin/resources">
+              Manage resources
+            </Link>
+          ) : undefined
+        }
+      />
+      <ResourceList searchParams={await searchParams} />
+    </>
+  );
 }

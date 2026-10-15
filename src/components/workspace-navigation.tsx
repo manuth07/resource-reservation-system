@@ -8,22 +8,98 @@ const workspaceItems = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/resources", label: "Resource catalog" },
   { href: "/reservations", label: "My reservations" },
+  { href: "/transport/request", label: "Request transport" },
 ];
-const adminItems = [{ href: "/admin/resources", label: "Resources" }, { href: "/admin/resource-categories", label: "Categories" }, { href: "/admin/employees", label: "Employees" }];
+
+const departmentItems = [
+  { href: "/department/approvals", label: "Approval queue" },
+];
+
+const adminReservationItems = [
+  { href: "/admin/reservations", label: "Reservation requests" },
+];
+
+const adminResourceItems = [
+  { href: "/admin/resources", label: "Manage resources" },
+  { href: "/admin/resource-categories", label: "Resource categories" },
+  { href: "/admin/drivers", label: "Drivers" },
+];
+
+const adminOrganizationItems = [
+  { href: "/admin/employees", label: "Employees" },
+  { href: "/admin/departments", label: "Departments" },
+];
+
+const allNavItems = [
+  ...workspaceItems,
+  ...departmentItems,
+  ...adminReservationItems,
+  ...adminResourceItems,
+  ...adminOrganizationItems,
+];
+
 const currentItem = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 export function WorkspaceSectionLabel() {
   const pathname = usePathname();
-  const section = [...workspaceItems, ...adminItems].find((item) => currentItem(pathname, item.href))?.label ?? "Workspace";
-  return <p className="workspace-context"><span>{pathname.startsWith("/admin/") ? "Administration" : "Workspace"}</span><span aria-hidden="true">/</span><span className="font-medium text-foreground">{section}</span></p>;
+  const matchedItem = allNavItems.find((item) =>
+    currentItem(pathname, item.href),
+  );
+  const section = matchedItem?.label ?? "Workspace";
+  const parent = pathname.startsWith("/admin/")
+    ? "Administration"
+    : pathname.startsWith("/department/")
+      ? "Department"
+      : "Workspace";
+
+  let detail: string | null = null;
+  if (pathname.startsWith("/admin/reservations/") && pathname !== "/admin/reservations") {
+    detail = "Request details";
+  } else if (pathname.startsWith("/reservations/") && pathname !== "/reservations") {
+    detail = "Reservation details";
+  }
+
+  return (
+    <p className="workspace-context">
+      <span>{parent}</span>
+      <span aria-hidden="true">/</span>
+      {detail ? (
+        <>
+          <span>{section}</span>
+          <span aria-hidden="true">/</span>
+          <span className="font-medium text-foreground">{detail}</span>
+        </>
+      ) : (
+        <span className="font-medium text-foreground">{section}</span>
+      )}
+    </p>
+  );
 }
 
-export function WorkspaceNavigation({ isAdmin, mobile = false }: { isAdmin: boolean; mobile?: boolean }) {
+export function WorkspaceNavigation({
+  isAdmin,
+  isDepartmentHead = false,
+  mobile = false,
+}: {
+  isAdmin: boolean;
+  isDepartmentHead?: boolean;
+  mobile?: boolean;
+}) {
   const pathname = usePathname();
   const disclosure = useRef<HTMLDetailsElement>(null);
   const summary = useRef<HTMLElement>(null);
   const close = () => { if (disclosure.current) disclosure.current.open = false; };
-  const groups = [{ label: "Workspace", items: workspaceItems }, ...(isAdmin ? [{ label: "Administration", items: adminItems }] : [])];
+  const groups = [
+    { label: "Workspace", items: workspaceItems },
+    ...(isDepartmentHead ? [{ label: "Department", items: departmentItems }] : []),
+    ...(isAdmin
+      ? [
+          { label: "Reservations", items: adminReservationItems },
+          { label: "Resource management", items: adminResourceItems },
+          { label: "Organization", items: adminOrganizationItems },
+        ]
+      : []),
+  ];
   const navigation = <nav aria-label={mobile ? "Mobile workspace navigation" : "Workspace navigation"} className="app-navigation">
     {groups.map((group) => <div key={group.label} className="navigation-group">
       <p className="navigation-label">{group.label}</p>

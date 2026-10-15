@@ -125,6 +125,7 @@ model Reservation {
   endTime             DateTime          @db.Timestamptz(3)
   purpose             String
   destination         String?
+  passengerCount      Int?
   status              ReservationStatus @default(PENDING)
   approvals           Approval[]
   createdAt           DateTime          @default(now()) @db.Timestamptz(3)

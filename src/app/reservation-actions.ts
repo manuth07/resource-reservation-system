@@ -5,9 +5,17 @@ import { redirect } from "next/navigation";
 import { AuthorizationError } from "@/lib/authorization";
 import { RateLimitError } from "@/lib/rate-limit";
 import {
+  adminAllocateVehicleAndConfirm,
+  adminFinalConfirm,
+  adminForwardToHod,
+  adminRejectRequest,
   cancelReservation,
   checkResourceAvailability,
   createDirectReservation,
+  createReservationRequest,
+  createVehicleReservationRequest,
+  hodApproveRequest,
+  hodRejectRequest,
 } from "@/lib/reservation-service";
 import type { ReservationActionResult } from "@/lib/reservation-types";
 import {
@@ -39,6 +47,17 @@ function failure(error: unknown): ReservationActionResult {
   return { error: "An unexpected error occurred. Please reload and try again." };
 }
 
+function invalidateAllReservationPaths(id?: string) {
+  revalidatePath("/reservations");
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/reservations");
+  revalidatePath("/department/approvals");
+  if (id) {
+    revalidatePath(`/reservations/${id}`);
+    revalidatePath(`/admin/reservations/${id}`);
+  }
+}
+
 export async function createDirectBookingAction(
   _previous: ReservationActionResult,
   data: FormData,
@@ -59,13 +78,65 @@ export async function createDirectBookingAction(
     return failure(error);
   }
 
-  revalidatePath("/reservations");
-  revalidatePath("/dashboard");
+  invalidateAllReservationPaths(reservationId);
   if (resourceId) {
     revalidatePath(`/resources/${resourceId}`);
   }
 
   redirect(`/reservations/${reservationId}?created=1`);
+}
+
+export async function createReservationRequestAction(
+  _previous: ReservationActionResult,
+  data: FormData,
+): Promise<ReservationActionResult> {
+  let reservationId: string;
+  const resourceId = field(data, "resourceId");
+
+  try {
+    const result = await createReservationRequest({
+      resourceId,
+      date: field(data, "date"),
+      startTime: field(data, "startTime"),
+      endTime: field(data, "endTime"),
+      purpose: field(data, "purpose"),
+    });
+    reservationId = result.reservationId;
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(reservationId);
+  if (resourceId) {
+    revalidatePath(`/resources/${resourceId}`);
+  }
+
+  redirect(`/reservations/${reservationId}?requested=1`);
+}
+
+export async function createVehicleRequestAction(
+  _previous: ReservationActionResult,
+  data: FormData,
+): Promise<ReservationActionResult> {
+  let reservationId: string;
+
+  try {
+    const result = await createVehicleReservationRequest({
+      categoryId: field(data, "categoryId"),
+      date: field(data, "date"),
+      startTime: field(data, "startTime"),
+      endTime: field(data, "endTime"),
+      destination: field(data, "destination"),
+      purpose: field(data, "purpose"),
+      passengerCount: field(data, "passengerCount"),
+    });
+    reservationId = result.reservationId;
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(reservationId);
+  redirect(`/reservations/${reservationId}?requested=1&transport=1`);
 }
 
 export async function cancelReservationAction(
@@ -78,11 +149,97 @@ export async function cancelReservationAction(
     return failure(error);
   }
 
-  revalidatePath("/reservations");
-  revalidatePath(`/reservations/${id}`);
-  revalidatePath("/dashboard");
-
+  invalidateAllReservationPaths(id);
   return { reservationId: id };
+}
+
+export async function adminForwardAction(
+  data: FormData,
+): Promise<ReservationActionResult> {
+  const id = field(data, "id");
+  try {
+    await adminForwardToHod(id);
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(id);
+  return { reservationId: id };
+}
+
+export async function adminRejectAction(
+  data: FormData,
+): Promise<ReservationActionResult> {
+  const id = field(data, "id");
+  const rejectionReason = field(data, "rejectionReason");
+  try {
+    await adminRejectRequest(id, rejectionReason);
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(id);
+  return { reservationId: id };
+}
+
+export async function hodApproveAction(
+  data: FormData,
+): Promise<ReservationActionResult> {
+  const id = field(data, "id");
+  try {
+    await hodApproveRequest(id);
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(id);
+  return { reservationId: id };
+}
+
+export async function hodRejectAction(
+  data: FormData,
+): Promise<ReservationActionResult> {
+  const id = field(data, "id");
+  const rejectionReason = field(data, "rejectionReason");
+  try {
+    await hodRejectRequest(id, rejectionReason);
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(id);
+  return { reservationId: id };
+}
+
+export async function adminFinalConfirmAction(
+  data: FormData,
+): Promise<ReservationActionResult> {
+  const id = field(data, "id");
+  try {
+    await adminFinalConfirm(id);
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(id);
+  return { reservationId: id };
+}
+
+export async function adminAllocateVehicleAndConfirmAction(
+  data: FormData,
+): Promise<ReservationActionResult> {
+  const reservationId = field(data, "reservationId");
+  const vehicleId = field(data, "vehicleId");
+  const driverId = field(data, "driverId");
+
+  try {
+    await adminAllocateVehicleAndConfirm(reservationId, vehicleId, driverId);
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(reservationId);
+  return { reservationId };
 }
 
 export async function checkAvailabilityAction(
