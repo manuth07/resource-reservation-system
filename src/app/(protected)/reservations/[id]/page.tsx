@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { requirePageUser } from "@/lib/page-auth";
-import { getReservation } from "@/lib/reservation-service";
+import {
+  getReservation,
+  listAvailableVehicles,
+} from "@/lib/reservation-service";
+import { listAvailableDrivers } from "@/lib/driver-service";
 import type { DisplayReservationStatus } from "@/lib/reservation-types";
 import {
   Card,
@@ -22,10 +26,11 @@ import {
 import { ReservationCancelControl } from "@/components/reservation-cancel-control";
 import { ApprovalControls } from "@/components/approval-controls";
 import { ApprovalTimeline } from "@/components/approval-timeline";
+import { VehicleAllocationPanel } from "@/components/vehicle-allocation-panel";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string; requested?: string }>;
+  searchParams: Promise<{ created?: string; requested?: string; allocated?: string }>;
 };
 
 export default function ReservationDetailPage(props: Props) {
@@ -81,7 +86,7 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
   const user = await requirePageUser();
 
   const { id } = await params;
-  const { created, requested } = await searchParams;
+  const { created, requested, allocated } = await searchParams;
 
   const reservation = await getReservation(id);
 
@@ -102,6 +107,29 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
       reservation.status === "APPROVED" ||
       (reservation.status === "CONFIRMED" &&
         reservation.displayStatus !== "COMPLETED"));
+
+  const isApprovedVehicleAwaitingAllocation =
+    isAdmin &&
+    reservation.status === "APPROVED" &&
+    reservation.requestedCategory.isVehicle &&
+    !reservation.resourceId;
+
+  let availableVehicles: Awaited<ReturnType<typeof listAvailableVehicles>> = [];
+  let availableDrivers: Awaited<ReturnType<typeof listAvailableDrivers>> = [];
+
+  if (isApprovedVehicleAwaitingAllocation) {
+    const start = new Date(reservation.startTime);
+    const end = new Date(reservation.endTime);
+    [availableVehicles, availableDrivers] = await Promise.all([
+      listAvailableVehicles(
+        reservation.requestedCategoryId,
+        start,
+        end,
+        reservation.passengerCount,
+      ),
+      listAvailableDrivers(start, end),
+    ]);
+  }
 
   const tone = getStatusTone(reservation.displayStatus);
   const statusLabel = getStatusLabel(reservation.displayStatus);
@@ -152,6 +180,12 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
           </Feedback>
         )}
 
+        {allocated === "1" && (
+          <Feedback tone="success">
+            Vehicle and driver have been allocated and the transport reservation is now confirmed.
+          </Feedback>
+        )}
+
         {/* Approval Decision Controls for Authorized Admins or HODs */}
         <ApprovalControls
           reservationId={reservation.id}
@@ -162,6 +196,21 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
           isVehicle={reservation.requestedCategory.isVehicle}
           resourceId={reservation.resourceId}
         />
+
+        {/* Dedicated Admin Vehicle & Driver Allocation Interface */}
+        {isApprovedVehicleAwaitingAllocation && (
+          <VehicleAllocationPanel
+            reservationId={reservation.id}
+            categoryName={reservation.requestedCategory.name}
+            passengerCount={reservation.passengerCount}
+            destination={reservation.destination}
+            purpose={reservation.purpose}
+            dateStr={dateStr}
+            timeIntervalStr={`${startTimeStr} – ${endTimeStr}`}
+            availableVehicles={availableVehicles}
+            availableDrivers={availableDrivers}
+          />
+        )}
 
         {/* Primary Schedule & Timing Information */}
         <Card className="p-6 sm:p-8 space-y-6">
@@ -201,10 +250,80 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
         <Card className="p-6 sm:p-8 space-y-6">
           <h2 className="section-title">
             {reservation.requestedCategory.isVehicle
-              ? "Requested transport specifications"
+              ? "Transport specifications"
               : "Reserved resource"}
           </h2>
-          {reservation.resource ? (
+          {reservation.requestedCategory.isVehicle ? (
+            <dl className="grid gap-6 sm:grid-cols-2">
+              <div>
+                <dt className="form-label">Vehicle category</dt>
+                <dd className="mt-1">
+                  <CategoryBadge category={reservation.requestedCategory} />
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Assigned vehicle</dt>
+                <dd className="mt-1 text-base font-medium text-foreground">
+                  {reservation.resource ? (
+                    <span>
+                      {reservation.resource.name}{" "}
+                      <span className="font-mono text-sm text-secondary">
+                        ({reservation.resource.resourceCode})
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-sm text-secondary italic">
+                      Vehicle awaiting allocation
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Destination</dt>
+                <dd className="mt-1 text-base font-medium text-foreground">
+                  {reservation.destination ?? "Not specified"}
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Passenger count</dt>
+                <dd className="mt-1 text-base font-semibold text-foreground tabular-nums">
+                  {reservation.passengerCount ? `${reservation.passengerCount} passengers` : "Not specified"}
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Assigned driver</dt>
+                <dd className="mt-1 text-base font-medium text-foreground">
+                  {reservation.driver ? (
+                    <span>
+                      {reservation.driver.name}{" "}
+                      <span className="text-xs text-secondary font-mono">
+                        (ID: {reservation.driver.driverIdentifier})
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-sm text-secondary italic">
+                      Driver awaiting allocation
+                    </span>
+                  )}
+                </dd>
+              </div>
+              {reservation.resource ? (
+                <div>
+                  <dt className="form-label">Vehicle seating capacity</dt>
+                  <dd className="mt-1 text-sm text-secondary tabular-nums">
+                    {reservation.resource.capacity ? `${reservation.resource.capacity} seats` : "Not specified"}
+                  </dd>
+                </div>
+              ) : (
+                <div>
+                  <dt className="form-label">Allocation procedure</dt>
+                  <dd className="mt-1 text-sm text-secondary">
+                    Vehicles and drivers are allocated by Administrators during final scheduling.
+                  </dd>
+                </div>
+              )}
+            </dl>
+          ) : reservation.resource ? (
             <dl className="grid gap-6 sm:grid-cols-2">
               <div>
                 <dt className="form-label">Resource name</dt>
@@ -242,45 +361,6 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
                   {reservation.resource.requiresApproval
                     ? "Requires Department Head and Admin approval"
                     : "Direct booking eligible"}
-                </dd>
-              </div>
-            </dl>
-          ) : reservation.requestedCategory.isVehicle ? (
-            <dl className="grid gap-6 sm:grid-cols-2">
-              <div>
-                <dt className="form-label">Vehicle category</dt>
-                <dd className="mt-1">
-                  <CategoryBadge category={reservation.requestedCategory} />
-                </dd>
-              </div>
-              <div>
-                <dt className="form-label">Assigned vehicle</dt>
-                <dd className="mt-1 text-sm text-secondary italic">
-                  Vehicle awaiting allocation
-                </dd>
-              </div>
-              <div>
-                <dt className="form-label">Destination</dt>
-                <dd className="mt-1 text-base font-medium text-foreground">
-                  {reservation.destination ?? "Not specified"}
-                </dd>
-              </div>
-              <div>
-                <dt className="form-label">Passenger count</dt>
-                <dd className="mt-1 text-base font-semibold text-foreground tabular-nums">
-                  {reservation.passengerCount ? `${reservation.passengerCount} passengers` : "Not specified"}
-                </dd>
-              </div>
-              <div>
-                <dt className="form-label">Assigned driver</dt>
-                <dd className="mt-1 text-sm text-secondary italic">
-                  Driver awaiting allocation
-                </dd>
-              </div>
-              <div>
-                <dt className="form-label">Allocation procedure</dt>
-                <dd className="mt-1 text-sm text-secondary">
-                  Vehicles and drivers are allocated by Administrators during final scheduling.
                 </dd>
               </div>
             </dl>

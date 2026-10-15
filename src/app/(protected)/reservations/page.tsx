@@ -181,7 +181,11 @@ async function ReservationsContent({ searchParams }: Props) {
                       </div>
                       <div className="text-xs text-secondary">
                         {res.resource?.resourceCode ? (
-                          <span className="font-mono">{res.resource.resourceCode}</span>
+                          <span>
+                            <span className="font-mono">{res.resource.resourceCode}</span>
+                            {res.driver ? ` • Driver: ${res.driver.name}` : ""}
+                            {res.destination ? ` • To: ${res.destination}` : ""}
+                          </span>
                         ) : res.requestedCategory.isVehicle ? (
                           res.destination ? (
                             <span>To: {res.destination} • {res.passengerCount ?? 1} {res.passengerCount === 1 ? "passenger" : "passengers"}</span>

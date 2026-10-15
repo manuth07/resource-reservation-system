@@ -192,10 +192,14 @@ async function AdminReservationsContent({ searchParams }: Props) {
                       </div>
                       <div className="text-xs text-secondary">
                         {res.resource?.resourceCode ? (
-                          <span className="font-mono">{res.resource.resourceCode}</span>
+                          <span>
+                            <span className="font-mono">{res.resource.resourceCode}</span>
+                            {res.driver ? ` • Driver: ${res.driver.name}` : ""}
+                            {res.destination ? ` • To: ${res.destination}` : ""}
+                          </span>
                         ) : res.requestedCategory.isVehicle ? (
                           res.destination ? (
-                            <span>To: {res.destination}</span>
+                            <span>To: {res.destination} • {res.passengerCount ?? 1} {res.passengerCount === 1 ? "passenger" : "passengers"}</span>
                           ) : (
                             "Allocation pending"
                           )
@@ -234,12 +238,21 @@ async function AdminReservationsContent({ searchParams }: Props) {
                           resourceId={res.resourceId}
                           compact
                         />
-                        <Link
-                          href={`/reservations/${res.id}`}
-                          className="button button-neutral button-sm whitespace-nowrap"
-                        >
-                          Review
-                        </Link>
+                        {res.requestedCategory.isVehicle && res.status === "APPROVED" && !res.resourceId ? (
+                          <Link
+                            href={`/reservations/${res.id}#allocate`}
+                            className="button button-primary button-sm whitespace-nowrap"
+                          >
+                            Allocate
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/reservations/${res.id}`}
+                            className="button button-neutral button-sm whitespace-nowrap"
+                          >
+                            Review
+                          </Link>
+                        )}
                       </div>
                     </td>
                   </tr>
