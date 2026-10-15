@@ -17,6 +17,7 @@ const adminItems = [
   { href: "/admin/resource-categories", label: "Categories" },
   { href: "/admin/employees", label: "Employees" },
   { href: "/admin/departments", label: "Departments" },
+  { href: "/admin/drivers", label: "Drivers" },
   { href: "/admin/reservations", label: "Reservation requests" },
 ];
 const currentItem = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
