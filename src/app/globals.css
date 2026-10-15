@@ -828,11 +828,15 @@
 dialog.confirmation-dialog {
   position: fixed;
   inset: 0;
-  width: min(460px, calc(100% - 32px));
+  width: min(480px, calc(100% - 32px));
   height: fit-content;
-  max-width: none;
+  max-width: 480px;
   max-height: calc(100dvh - 32px);
   margin: auto;
+  box-sizing: border-box;
+  text-align: left;
+  white-space: normal;
+  overflow-x: hidden;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 4px;
