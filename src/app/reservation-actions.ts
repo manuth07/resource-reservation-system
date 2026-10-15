@@ -54,6 +54,7 @@ function invalidateAllReservationPaths(id?: string) {
   revalidatePath("/department/approvals");
   if (id) {
     revalidatePath(`/reservations/${id}`);
+    revalidatePath(`/admin/reservations/${id}`);
   }
 }
 

@@ -72,6 +72,7 @@ export function VehicleAllocationPanel({
       if (result.error) {
         setError(result.error);
       } else {
+        router.push(`${window.location.pathname}?allocated=1`);
         router.refresh();
       }
     });

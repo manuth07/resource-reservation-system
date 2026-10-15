@@ -402,13 +402,13 @@ export function ApprovalControls({
 
       {isApprovedVehicleAwaitingAllocation && (
         <Feedback tone="info">
-          <strong>Vehicle & driver allocation required:</strong> This transport request has received Department Head approval. A vehicle and driver will be allocated upon final confirmation (Phase 3C).
+          <strong>Vehicle & driver allocation required:</strong> This transport request has been approved. Assign an available vehicle and driver to complete the reservation.
         </Feedback>
       )}
 
       {canAdminConfirm && (
         <p className="text-sm text-secondary">
-          This reservation has received Department Head approval. Click confirm to schedule the resource. Concurrency checks and PostgreSQL exclusion constraints will authoritative guarantee availability.
+          This reservation has received Department Head approval. Click confirm to schedule the resource and finalize availability.
         </p>
       )}
 

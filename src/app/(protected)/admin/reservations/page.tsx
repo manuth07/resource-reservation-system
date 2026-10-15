@@ -240,14 +240,14 @@ async function AdminReservationsContent({ searchParams }: Props) {
                         />
                         {res.requestedCategory.isVehicle && res.status === "APPROVED" && !res.resourceId ? (
                           <Link
-                            href={`/reservations/${res.id}#allocate`}
+                            href={`/admin/reservations/${res.id}#allocate`}
                             className="button button-primary button-sm whitespace-nowrap"
                           >
                             Allocate
                           </Link>
                         ) : (
                           <Link
-                            href={`/reservations/${res.id}`}
+                            href={`/admin/reservations/${res.id}`}
                             className="button button-neutral button-sm whitespace-nowrap"
                           >
                             Review

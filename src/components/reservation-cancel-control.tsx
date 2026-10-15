@@ -5,7 +5,13 @@ import { cancelReservationAction } from "@/app/reservation-actions";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Button, Feedback } from "@/components/ui";
 
-export function ReservationCancelControl({ reservationId }: { reservationId: string }) {
+export function ReservationCancelControl({
+  reservationId,
+  isVehicle = false,
+}: {
+  reservationId: string;
+  isVehicle?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -24,6 +30,10 @@ export function ReservationCancelControl({ reservationId }: { reservationId: str
     });
   };
 
+  const confirmDescription = isVehicle
+    ? "Are you sure you want to cancel this reservation? The assigned vehicle and driver will be released immediately for other bookings. Cancelled reservations remain in your history."
+    : "Are you sure you want to cancel this reservation? The reserved resource will immediately become available for other employees to book. Cancelled reservations remain in your history.";
+
   return (
     <div>
       {error && !open && <Feedback tone="danger" className="mb-4">{error}</Feedback>}
@@ -41,7 +51,7 @@ export function ReservationCancelControl({ reservationId }: { reservationId: str
       <ConfirmationDialog
         open={open}
         title="Cancel reservation"
-        description="Are you sure you want to cancel this reservation? The reserved resource will immediately become available for other employees to book."
+        description={confirmDescription}
         confirmLabel="Confirm cancellation"
         pendingLabel="Cancelling…"
         pendingMessage="Cancelling reservation. Please wait."
