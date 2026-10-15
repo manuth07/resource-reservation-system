@@ -58,7 +58,7 @@ export function Button({
   className = "",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "neutral" | "danger" | "activate" | "deactivate";
+  variant?: "primary" | "secondary" | "neutral" | "tertiary" | "danger" | "activate" | "deactivate";
   size?: "default" | "sm";
 }) {
   const sizeClass = size === "sm" ? "button-sm" : "";
