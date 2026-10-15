@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AuthorizationError } from "@/lib/authorization";
 import { RateLimitError } from "@/lib/rate-limit";
 import {
+  adminAllocateVehicleAndConfirm,
   adminFinalConfirm,
   adminForwardToHod,
   adminRejectRequest,
@@ -221,6 +222,23 @@ export async function adminFinalConfirmAction(
 
   invalidateAllReservationPaths(id);
   return { reservationId: id };
+}
+
+export async function adminAllocateVehicleAndConfirmAction(
+  data: FormData,
+): Promise<ReservationActionResult> {
+  const reservationId = field(data, "reservationId");
+  const vehicleId = field(data, "vehicleId");
+  const driverId = field(data, "driverId");
+
+  try {
+    await adminAllocateVehicleAndConfirm(reservationId, vehicleId, driverId);
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(reservationId);
+  return { reservationId };
 }
 
 export async function checkAvailabilityAction(

@@ -57,6 +57,12 @@ export type ApprovalRecord = {
   approver: ReservationUserSummary;
 };
 
+export type ReservationDriverSummary = {
+  id: string;
+  name: string;
+  driverIdentifier: string;
+};
+
 export type ReservationRecord = {
   id: string;
   requesterId: string;
@@ -77,6 +83,7 @@ export type ReservationRecord = {
   department: ReservationDepartmentSummary;
   requestedCategory: ReservationCategorySummary;
   resource: ReservationResourceSummary | null;
+  driver: ReservationDriverSummary | null;
   approvals: ApprovalRecord[];
 };
 
@@ -117,6 +124,7 @@ export type ReservationListResult = {
 export type ReservationField =
   | "resourceId"
   | "requestedCategoryId"
+  | "driverId"
   | "date"
   | "startTime"
   | "endTime"
@@ -124,6 +132,14 @@ export type ReservationField =
   | "rejectionReason"
   | "destination"
   | "passengerCount";
+
+export type AvailableVehicleSummary = {
+  id: string;
+  name: string;
+  resourceCode: string;
+  capacity: number | null;
+  imageUrl: string | null;
+};
 
 export type ReservationActionResult = {
   error?: string;

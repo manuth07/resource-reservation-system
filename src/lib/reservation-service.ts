@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import type {
   AdminReservationQueueTab,
+  AvailableVehicleSummary,
   DirectBookingInput,
   ReservationListResult,
   ReservationRecord,
@@ -86,6 +87,13 @@ const reservationInclude = {
   resource: {
     select: resourceSelect,
   },
+  driver: {
+    select: {
+      id: true,
+      name: true,
+      driverIdentifier: true,
+    },
+  },
   approvals: {
     include: approvalInclude,
     orderBy: {
@@ -103,8 +111,20 @@ function isExclusionConflict(error: unknown): boolean {
     code === "23P01" ||
     msg.includes("23P01") ||
     msg.includes("Reservation_confirmed_resource_no_overlap") ||
+    msg.includes("Reservation_confirmed_driver_no_overlap") ||
     str.includes("23P01") ||
-    str.includes("Reservation_confirmed_resource_no_overlap")
+    str.includes("Reservation_confirmed_resource_no_overlap") ||
+    str.includes("Reservation_confirmed_driver_no_overlap")
+  );
+}
+
+function isDriverExclusionConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const str = String(error);
+  const msg = "message" in error && typeof error.message === "string" ? error.message : "";
+  return (
+    msg.includes("Reservation_confirmed_driver_no_overlap") ||
+    str.includes("Reservation_confirmed_driver_no_overlap")
   );
 }
 
@@ -132,6 +152,13 @@ function toReservationRecord(
     department: row.department,
     requestedCategory: row.requestedCategory,
     resource: row.resource,
+    driver: row.driver
+      ? {
+          id: row.driver.id,
+          name: row.driver.name,
+          driverIdentifier: row.driver.driverIdentifier,
+        }
+      : null,
     approvals: (row.approvals ?? []).map((a) => ({
       id: a.id,
       reservationId: a.reservationId,
@@ -1188,6 +1215,382 @@ export async function adminFinalConfirm(reservationId: string) {
         "This resource is already reserved during the requested time interval. The reservation remains approved pending scheduling resolution.",
       );
     }
+    throw error;
+  }
+}
+
+/**
+ * Lists available active vehicles in a given vehicle category that satisfy passenger count
+ * and have no overlapping CONFIRMED reservation during [startTime, endTime).
+ */
+export async function listAvailableVehicles(
+  categoryId: string,
+  startTime: Date,
+  endTime: Date,
+  passengerCount?: number | null,
+): Promise<AvailableVehicleSummary[]> {
+  await requireAuthenticatedUser();
+
+  if (!isValidUuid(categoryId)) {
+    throw new ReservationError("Invalid vehicle category identifier.");
+  }
+
+  const startMs = typeof startTime?.getTime === "function" ? startTime.getTime() : NaN;
+  const endMs = typeof endTime?.getTime === "function" ? endTime.getTime() : NaN;
+
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+    throw new ReservationError("Invalid booking interval timestamps.");
+  }
+  if (endMs <= startMs) {
+    throw new ReservationError("End time must be after start time.");
+  }
+
+  const vehicles = await prisma.resource.findMany({
+    where: {
+      categoryId,
+      isActive: true,
+      category: { isVehicle: true },
+      ...(passengerCount != null && passengerCount > 0
+        ? {
+            OR: [
+              { capacity: null },
+              { capacity: { gte: passengerCount } },
+            ],
+          }
+        : {}),
+      reservations: {
+        none: {
+          status: ReservationStatus.CONFIRMED,
+          startTime: { lt: endTime },
+          endTime: { gt: startTime },
+        },
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      resourceCode: true,
+      capacity: true,
+      imageUrl: true,
+    },
+    orderBy: [{ name: "asc" }, { resourceCode: "asc" }],
+  });
+
+  return vehicles;
+}
+
+/**
+ * Atomically allocates an eligible vehicle and driver to an APPROVED vehicle reservation,
+ * transitions status to CONFIRMED, and records ADMIN_CONFIRMATION audit entry.
+ *
+ * Enforces:
+ * - Active Admin role.
+ * - Row locks on Reservation, Resource, and Driver in deterministic order.
+ * - Prerequisite ADMIN_REVIEW and DEPARTMENT_HEAD_APPROVAL approvals exist.
+ * - No existing ADMIN_CONFIRMATION approval.
+ * - Vehicle category matches requestedCategoryId and isVehicle=true.
+ * - Vehicle is active and capacity >= passengerCount.
+ * - Driver is active.
+ * - Neither vehicle nor driver has overlapping CONFIRMED reservations.
+ * - Catches SQLSTATE 23P01 exclusion constraints and translates into clear user errors.
+ * - Atomic rollback on any failure.
+ */
+export async function adminAllocateVehicleAndConfirm(
+  reservationId: string,
+  vehicleId: string,
+  driverId: string,
+) {
+  const actor = await requireRole(UserRole.ADMIN);
+  await enforceRateLimit("approval-action", actor.id, 60, 60_000);
+
+  if (!isValidUuid(reservationId)) {
+    throw new ReservationError("Invalid reservation identifier.");
+  }
+  if (!isValidUuid(vehicleId)) {
+    throw new ReservationError("A valid vehicle selection is required.", "resourceId");
+  }
+  if (!isValidUuid(driverId)) {
+    throw new ReservationError("A valid driver selection is required.", "driverId");
+  }
+
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        // 1. Verify authenticated actor eligibility inside transaction
+        const currentActor = await tx.user.findUnique({
+          where: { id: actor.id },
+          select: {
+            id: true,
+            role: true,
+            accountStatus: true,
+            mustChangePassword: true,
+            sessionVersion: true,
+          },
+        });
+
+        if (
+          !currentActor ||
+          currentActor.role !== UserRole.ADMIN ||
+          currentActor.accountStatus !== AccountStatus.ACTIVE ||
+          currentActor.mustChangePassword ||
+          currentActor.sessionVersion !== actor.sessionVersion
+        ) {
+          throw new AuthorizationError("FORBIDDEN", 403);
+        }
+
+        // 2. Lock reservation row FOR UPDATE
+        const reservations = await tx.$queryRaw<
+          {
+            id: string;
+            status: ReservationStatus;
+            requestedCategoryId: string;
+            resourceId: string | null;
+            driverId: string | null;
+            startTime: Date;
+            endTime: Date;
+            passengerCount: number | null;
+            isVehicle: boolean;
+          }[]
+        >`
+          SELECT r."id", r."status", r."requestedCategoryId", r."resourceId", r."driverId",
+                 r."startTime", r."endTime", r."passengerCount", c."isVehicle"
+          FROM "public"."Reservation" r
+          JOIN "public"."ResourceCategory" c ON r."requestedCategoryId" = c."id"
+          WHERE r."id" = ${reservationId}::uuid
+          FOR UPDATE;
+        `;
+
+        if (!reservations || reservations.length === 0) {
+          throw new ReservationError("Reservation not found.", undefined, 404);
+        }
+
+        const reservation = reservations[0];
+
+        // 3. Verify status is APPROVED
+        if (reservation.status !== ReservationStatus.APPROVED) {
+          throw new ReservationError(
+            "Only approved reservation requests can receive vehicle and driver allocation.",
+          );
+        }
+
+        // 4. Verify the category is a vehicle category
+        if (!reservation.isVehicle) {
+          throw new ReservationError(
+            "This reservation is not a vehicle request and cannot receive vehicle allocation.",
+          );
+        }
+
+        // 5. Verify required prerequisite approvals exist
+        const approvals = await tx.approval.findMany({
+          where: {
+            reservationId,
+            stage: {
+              in: [
+                ApprovalStage.ADMIN_REVIEW,
+                ApprovalStage.DEPARTMENT_HEAD_APPROVAL,
+              ],
+            },
+          },
+        });
+
+        const adminReview = approvals.find(
+          (a) => a.stage === ApprovalStage.ADMIN_REVIEW,
+        );
+        const hodApproval = approvals.find(
+          (a) => a.stage === ApprovalStage.DEPARTMENT_HEAD_APPROVAL,
+        );
+
+        if (
+          !adminReview ||
+          adminReview.decision !== ApprovalDecision.APPROVED ||
+          !hodApproval ||
+          hodApproval.decision !== ApprovalDecision.APPROVED
+        ) {
+          throw new ReservationError(
+            "This request has not completed all required prerequisite approval decisions.",
+          );
+        }
+
+        // 6. Verify there is no existing ADMIN_CONFIRMATION decision
+        const existingConfirmation = await tx.approval.findUnique({
+          where: {
+            reservationId_stage: {
+              reservationId,
+              stage: ApprovalStage.ADMIN_CONFIRMATION,
+            },
+          },
+        });
+
+        if (existingConfirmation) {
+          throw new ReservationError(
+            "A final confirmation decision has already been recorded for this request.",
+          );
+        }
+
+        // 7. Lock selected vehicle and driver rows in deterministic order
+        const vehicles = await tx.$queryRaw<
+          {
+            id: string;
+            categoryId: string;
+            capacity: number | null;
+            isActive: boolean;
+            name: string;
+            resourceCode: string;
+            isVehicle: boolean;
+          }[]
+        >`
+          SELECT r."id", r."categoryId", r."capacity", r."isActive", r."name", r."resourceCode", c."isVehicle"
+          FROM "public"."Resource" r
+          JOIN "public"."ResourceCategory" c ON r."categoryId" = c."id"
+          WHERE r."id" = ${vehicleId}::uuid
+          FOR UPDATE;
+        `;
+
+        if (!vehicles || vehicles.length === 0) {
+          throw new ReservationError("Vehicle not found.", "resourceId", 404);
+        }
+
+        const vehicle = vehicles[0];
+
+        const drivers = await tx.$queryRaw<
+          {
+            id: string;
+            name: string;
+            driverIdentifier: string;
+            isActive: boolean;
+          }[]
+        >`
+          SELECT d."id", d."name", d."driverIdentifier", d."isActive"
+          FROM "public"."Driver" d
+          WHERE d."id" = ${driverId}::uuid
+          FOR UPDATE;
+        `;
+
+        if (!drivers || drivers.length === 0) {
+          throw new ReservationError("Driver not found.", "driverId", 404);
+        }
+
+        const driver = drivers[0];
+
+        // 8. Verify vehicle active, category match, and capacity
+        if (!vehicle.isActive) {
+          throw new ReservationError(
+            "The selected vehicle is inactive and cannot be allocated.",
+            "resourceId",
+          );
+        }
+
+        if (vehicle.categoryId !== reservation.requestedCategoryId || !vehicle.isVehicle) {
+          throw new ReservationError(
+            "The selected vehicle does not belong to the requested vehicle category.",
+            "resourceId",
+          );
+        }
+
+        if (
+          reservation.passengerCount !== null &&
+          vehicle.capacity !== null &&
+          vehicle.capacity < reservation.passengerCount
+        ) {
+          throw new ReservationError(
+            `The selected vehicle capacity (${vehicle.capacity}) is insufficient for ${reservation.passengerCount} passengers.`,
+            "resourceId",
+          );
+        }
+
+        // 9. Verify driver active status
+        if (!driver.isActive) {
+          throw new ReservationError(
+            "The selected driver is inactive and cannot be allocated.",
+            "driverId",
+          );
+        }
+
+        // 10. Recheck resource and driver availability against CONFIRMED reservations
+        const vehicleConflict = await tx.reservation.findFirst({
+          where: {
+            resourceId: vehicleId,
+            status: ReservationStatus.CONFIRMED,
+            id: { not: reservationId },
+            startTime: { lt: reservation.endTime },
+            endTime: { gt: reservation.startTime },
+          },
+          select: { id: true },
+        });
+
+        if (vehicleConflict) {
+          throw new ReservationError(
+            "The selected vehicle is already reserved during the requested time interval.",
+            "resourceId",
+          );
+        }
+
+        const driverConflict = await tx.reservation.findFirst({
+          where: {
+            driverId: driverId,
+            status: ReservationStatus.CONFIRMED,
+            id: { not: reservationId },
+            startTime: { lt: reservation.endTime },
+            endTime: { gt: reservation.startTime },
+          },
+          select: { id: true },
+        });
+
+        if (driverConflict) {
+          throw new ReservationError(
+            "The selected driver is already assigned to a confirmed reservation during the requested time interval.",
+            "driverId",
+          );
+        }
+
+        // 11 & 12. Assign resourceId, driverId, and transition status to CONFIRMED
+        await tx.reservation.update({
+          where: { id: reservationId },
+          data: {
+            resourceId: vehicleId,
+            driverId: driverId,
+            status: ReservationStatus.CONFIRMED,
+          },
+        });
+
+        // 13. Record ADMIN_CONFIRMATION audit decision
+        await tx.approval.create({
+          data: {
+            reservationId,
+            approverId: currentActor.id,
+            stage: ApprovalStage.ADMIN_CONFIRMATION,
+            decision: ApprovalDecision.APPROVED,
+          },
+        });
+
+        return {
+          reservationId,
+          resourceId: vehicleId,
+          driverId,
+          status: ReservationStatus.CONFIRMED,
+        };
+      },
+      { maxWait: 5000, timeout: 10000, isolationLevel: "ReadCommitted" },
+    );
+  } catch (error) {
+    if (error instanceof ReservationError || error instanceof AuthorizationError) {
+      throw error;
+    }
+
+    if (isDriverExclusionConflict(error)) {
+      throw new ReservationError(
+        "The selected driver is already assigned to a confirmed reservation during the requested time interval.",
+        "driverId",
+      );
+    }
+
+    if (isExclusionConflict(error)) {
+      throw new ReservationError(
+        "The selected vehicle is already reserved during the requested time interval.",
+        "resourceId",
+      );
+    }
+
     throw error;
   }
 }
