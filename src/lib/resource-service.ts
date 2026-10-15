@@ -20,6 +20,21 @@ export async function listCategoryOptions(): Promise<ResourceCategoryOption[]> {
   await requireAuthenticatedUser();
   return prisma.resourceCategory.findMany({ select: categorySelect, orderBy: { name: "asc" } });
 }
+
+export async function listVehicleCategories() {
+  await requireAuthenticatedUser();
+  return prisma.resourceCategory.findMany({
+    where: { isVehicle: true },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      description: true,
+      isVehicle: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
 export async function listCategories(): Promise<CategoryRecord[]> {
   await requireRole(UserRole.ADMIN);
   return (await prisma.resourceCategory.findMany({ select: categoryAdminSelect, orderBy: { name: "asc" } })).map(categoryDto);

@@ -88,6 +88,16 @@ export type DirectBookingInput = {
   purpose: string;
 };
 
+export type VehicleRequestInput = {
+  categoryId: string;
+  date: string;       // YYYY-MM-DD
+  startTime: string;  // HH:mm
+  endTime: string;    // HH:mm
+  destination: string;
+  purpose: string;
+  passengerCount: number | string;
+};
+
 export type ReservationTabFilter = "upcoming" | "past" | "cancelled" | "all";
 
 export type AdminReservationQueueTab =
@@ -106,6 +116,7 @@ export type ReservationListResult = {
 
 export type ReservationField =
   | "resourceId"
+  | "requestedCategoryId"
   | "date"
   | "startTime"
   | "endTime"

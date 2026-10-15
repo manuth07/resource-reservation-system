@@ -232,3 +232,102 @@ export function validatePassengerCount(value: unknown, required = false): number
   }
   return num;
 }
+
+export type ParsedVehicleRequest = {
+  categoryId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  destination: string;
+  purpose: string;
+  passengerCount: number;
+  start: Date;
+  end: Date;
+};
+
+/**
+ * Parses and validates vehicle/transport request submission input.
+ */
+export function parseVehicleRequestInput(
+  raw: Record<string, unknown>,
+  now: Date = new Date(),
+): ParsedVehicleRequest {
+  const categoryId = typeof raw.categoryId === "string" ? raw.categoryId.trim() : "";
+  if (!isValidUuid(categoryId)) {
+    throw new ReservationError(
+      "A valid vehicle category selection is required.",
+      "requestedCategoryId",
+    );
+  }
+
+  const date = typeof raw.date === "string" ? raw.date.trim() : "";
+  if (!DATE_REGEX.test(date)) {
+    throw new ReservationError(
+      "Please provide a valid booking date (YYYY-MM-DD).",
+      "date",
+    );
+  }
+
+  const startTime = typeof raw.startTime === "string" ? raw.startTime.trim() : "";
+  if (!TIME_REGEX.test(startTime)) {
+    throw new ReservationError(
+      "Please provide a valid start time (HH:mm).",
+      "startTime",
+    );
+  }
+
+  const endTime = typeof raw.endTime === "string" ? raw.endTime.trim() : "";
+  if (!TIME_REGEX.test(endTime)) {
+    throw new ReservationError(
+      "Please provide a valid end time (HH:mm).",
+      "endTime",
+    );
+  }
+
+  const destination = typeof raw.destination === "string" ? raw.destination.trim() : "";
+  if (!destination) {
+    throw new ReservationError(
+      "Destination is required for transport requests.",
+      "destination",
+    );
+  }
+  if (destination.length > 500) {
+    throw new ReservationError(
+      "Destination must not exceed 500 characters.",
+      "destination",
+    );
+  }
+
+  const purpose = typeof raw.purpose === "string" ? raw.purpose.trim() : "";
+  if (!purpose) {
+    throw new ReservationError("Purpose is required for this reservation.", "purpose");
+  }
+  if (purpose.length > 1000) {
+    throw new ReservationError("Purpose must not exceed 1000 characters.", "purpose");
+  }
+
+  const passengerCount = validatePassengerCount(raw.passengerCount, true);
+  if (passengerCount === null) {
+    throw new ReservationError(
+      "Passenger count is required for transport requests.",
+      "passengerCount",
+    );
+  }
+
+  const start = parseColomboDateTime(date, startTime, "startTime");
+  const end = parseColomboDateTime(date, endTime, "endTime");
+
+  validateBookingInterval(start, end, now);
+
+  return {
+    categoryId,
+    date,
+    startTime,
+    endTime,
+    destination,
+    purpose,
+    passengerCount,
+    start,
+    end,
+  };
+}

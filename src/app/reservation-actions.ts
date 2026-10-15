@@ -12,6 +12,7 @@ import {
   checkResourceAvailability,
   createDirectReservation,
   createReservationRequest,
+  createVehicleReservationRequest,
   hodApproveRequest,
   hodRejectRequest,
 } from "@/lib/reservation-service";
@@ -109,6 +110,31 @@ export async function createReservationRequestAction(
   }
 
   redirect(`/reservations/${reservationId}?requested=1`);
+}
+
+export async function createVehicleRequestAction(
+  _previous: ReservationActionResult,
+  data: FormData,
+): Promise<ReservationActionResult> {
+  let reservationId: string;
+
+  try {
+    const result = await createVehicleReservationRequest({
+      categoryId: field(data, "categoryId"),
+      date: field(data, "date"),
+      startTime: field(data, "startTime"),
+      endTime: field(data, "endTime"),
+      destination: field(data, "destination"),
+      purpose: field(data, "purpose"),
+      passengerCount: field(data, "passengerCount"),
+    });
+    reservationId = result.reservationId;
+  } catch (error) {
+    return failure(error);
+  }
+
+  invalidateAllReservationPaths(reservationId);
+  redirect(`/reservations/${reservationId}?requested=1&transport=1`);
 }
 
 export async function cancelReservationAction(

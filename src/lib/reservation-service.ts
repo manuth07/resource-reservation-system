@@ -21,12 +21,14 @@ import type {
   ReservationListResult,
   ReservationRecord,
   ReservationTabFilter,
+  VehicleRequestInput,
 } from "@/lib/reservation-types";
 import {
   ReservationError,
   getDisplayReservationStatus,
   isValidUuid,
   parseDirectBookingInput,
+  parseVehicleRequestInput,
 } from "@/lib/reservation-validation";
 
 const categorySelect = {
@@ -415,6 +417,93 @@ export async function createReservationRequest(input: DirectBookingInput) {
           startTime: parsed.start,
           endTime: parsed.end,
           purpose: parsed.purpose,
+          status: ReservationStatus.PENDING,
+        },
+        select: { id: true },
+      });
+
+      return created.id;
+    },
+    { maxWait: 5000, timeout: 10000, isolationLevel: "ReadCommitted" },
+  );
+
+  return { reservationId };
+}
+
+/**
+ * Submits a vehicle category transport reservation request.
+ * Persists with PENDING status, resourceId=NULL, driverId=NULL.
+ * Does NOT allocate availability or reserve vehicles/drivers.
+ * Multiple pending requests may overlap.
+ */
+export async function createVehicleReservationRequest(input: VehicleRequestInput) {
+  const actor = await requireAuthenticatedUser();
+  await enforceRateLimit("vehicle-request", actor.id, 30, 60_000);
+
+  const parsed = parseVehicleRequestInput(input);
+
+  const reservationId = await prisma.$transaction(
+    async (tx) => {
+      // Re-verify current actor state and department snapshot
+      const currentActor = await tx.user.findUnique({
+        where: { id: actor.id },
+        select: {
+          id: true,
+          accountStatus: true,
+          mustChangePassword: true,
+          sessionVersion: true,
+          departmentId: true,
+        },
+      });
+
+      if (
+        !currentActor ||
+        currentActor.accountStatus !== AccountStatus.ACTIVE ||
+        currentActor.mustChangePassword ||
+        currentActor.sessionVersion !== actor.sessionVersion
+      ) {
+        throw new AuthorizationError("FORBIDDEN", 403);
+      }
+
+      // Verify category exists and is a vehicle category
+      const category = await tx.resourceCategory.findUnique({
+        where: { id: parsed.categoryId },
+        select: {
+          id: true,
+          name: true,
+          isVehicle: true,
+        },
+      });
+
+      if (!category) {
+        throw new ReservationError(
+          "The selected category does not exist.",
+          "requestedCategoryId",
+        );
+      }
+
+      if (!category.isVehicle) {
+        throw new ReservationError(
+          "The selected category is not a vehicle or transport category.",
+          "requestedCategoryId",
+        );
+      }
+
+      // Persist vehicle reservation request
+      // resourceId and driverId are explicitly NULL at submission.
+      // Availability is not reserved at this stage.
+      const created = await tx.reservation.create({
+        data: {
+          requesterId: currentActor.id,
+          departmentId: currentActor.departmentId,
+          requestedCategoryId: category.id,
+          resourceId: null,
+          driverId: null,
+          startTime: parsed.start,
+          endTime: parsed.end,
+          destination: parsed.destination,
+          purpose: parsed.purpose,
+          passengerCount: parsed.passengerCount,
           status: ReservationStatus.PENDING,
         },
         select: { id: true },
@@ -954,7 +1043,7 @@ export async function adminFinalConfirm(reservationId: string) {
           {
             id: string;
             status: ReservationStatus;
-            resourceId: string;
+            resourceId: string | null;
             startTime: Date;
             endTime: Date;
           }[]
@@ -974,6 +1063,12 @@ export async function adminFinalConfirm(reservationId: string) {
         if (reservation.status !== ReservationStatus.APPROVED) {
           throw new ReservationError(
             "Only approved reservation requests can receive final confirmation.",
+          );
+        }
+
+        if (!reservation.resourceId) {
+          throw new ReservationError(
+            "Vehicle requests require vehicle and driver allocation before final confirmation.",
           );
         }
 
