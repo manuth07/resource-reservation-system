@@ -211,3 +211,24 @@ export function getColomboDateString(date: Date = new Date()): string {
   });
   return formatter.format(date);
 }
+
+/**
+ * Validates a passenger count.
+ * Must be a positive integer greater than zero when provided.
+ */
+export function validatePassengerCount(value: unknown, required = false): number | null {
+  if (value === undefined || value === null || value === "") {
+    if (required) {
+      throw new ReservationError("Passenger count is required for transport requests.", "passengerCount");
+    }
+    return null;
+  }
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(num) || num <= 0) {
+    throw new ReservationError("Passenger count must be a positive number.", "passengerCount");
+  }
+  if (num > 200) {
+    throw new ReservationError("Passenger count exceeds maximum vehicle capacity.", "passengerCount");
+  }
+  return num;
+}

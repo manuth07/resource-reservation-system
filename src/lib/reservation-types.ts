@@ -68,6 +68,7 @@ export type ReservationRecord = {
   endTime: string;   // ISO 8601 UTC string
   purpose: string;
   destination: string | null;
+  passengerCount: number | null;
   status: ReservationStatus;
   displayStatus: DisplayReservationStatus;
   createdAt: string;
@@ -103,7 +104,15 @@ export type ReservationListResult = {
   pages: number;
 };
 
-export type ReservationField = "resourceId" | "date" | "startTime" | "endTime" | "purpose" | "rejectionReason";
+export type ReservationField =
+  | "resourceId"
+  | "date"
+  | "startTime"
+  | "endTime"
+  | "purpose"
+  | "rejectionReason"
+  | "destination"
+  | "passengerCount";
 
 export type ReservationActionResult = {
   error?: string;

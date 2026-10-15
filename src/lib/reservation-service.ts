@@ -121,6 +121,7 @@ function toReservationRecord(
     endTime: row.endTime.toISOString(),
     purpose: row.purpose,
     destination: row.destination,
+    passengerCount: row.passengerCount ?? null,
     status: row.status,
     displayStatus: getDisplayReservationStatus(row.status, row.endTime, now),
     createdAt: row.createdAt.toISOString(),
