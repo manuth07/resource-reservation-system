@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const workspaceItems = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/resources", label: "Resource catalog" },
+  { href: "/transport/request", label: "Request transport" },
   { href: "/reservations", label: "My reservations" },
 ];
 const departmentItems = [

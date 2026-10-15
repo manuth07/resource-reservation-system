@@ -178,10 +178,23 @@ async function DepartmentApprovalsContent({ searchParams }: Props) {
                     </td>
                     <td>
                       <div className="font-medium text-foreground">
-                        {res.resource?.name ?? "Resource unlinked"}
+                        {res.resource?.name ??
+                          (res.requestedCategory.isVehicle
+                            ? "Vehicle awaiting allocation"
+                            : "Resource unlinked")}
                       </div>
-                      <div className="font-mono text-xs text-secondary">
-                        {res.resource?.resourceCode ?? "—"}
+                      <div className="text-xs text-secondary">
+                        {res.resource?.resourceCode ? (
+                          <span className="font-mono">{res.resource.resourceCode}</span>
+                        ) : res.requestedCategory.isVehicle ? (
+                          res.destination ? (
+                            <span>To: {res.destination}</span>
+                          ) : (
+                            "Allocation pending"
+                          )
+                        ) : (
+                          "—"
+                        )}
                       </div>
                     </td>
                     <td>
@@ -212,6 +225,8 @@ async function DepartmentApprovalsContent({ searchParams }: Props) {
                           userRole={user.role}
                           isDepartmentHeadForReservation={true}
                           isRequester={isRequester}
+                          isVehicle={res.requestedCategory.isVehicle}
+                          resourceId={res.resourceId}
                           compact
                         />
                         <Link

@@ -147,6 +147,8 @@ export type ApprovalControlsProps = {
   isDepartmentHeadForReservation?: boolean;
   isRequester?: boolean;
   compact?: boolean;
+  isVehicle?: boolean;
+  resourceId?: string | null;
   onSuccess?: () => void;
 };
 
@@ -157,6 +159,8 @@ export function ApprovalControls({
   isDepartmentHeadForReservation = false,
   isRequester = false,
   compact = false,
+  isVehicle = false,
+  resourceId,
   onSuccess,
 }: ApprovalControlsProps) {
   const [error, setError] = useState<string | null>(null);
@@ -166,12 +170,21 @@ export function ApprovalControls({
   const isAdmin = userRole === "ADMIN";
   const isHod = isDepartmentHeadForReservation;
 
+  const isVehicleRequest = isVehicle || resourceId === null;
+
   // Determine what actions are available based on role and reservation status
   const canAdminReview = isAdmin && status === "PENDING";
   const canHodDecide = isHod && status === "AWAITING_APPROVAL";
-  const canAdminConfirm = isAdmin && status === "APPROVED";
+  const canAdminConfirm = isAdmin && status === "APPROVED" && !isVehicleRequest;
+  const isApprovedVehicleAwaitingAllocation =
+    isAdmin && status === "APPROVED" && isVehicleRequest;
 
-  if (!canAdminReview && !canHodDecide && !canAdminConfirm) {
+  if (
+    !canAdminReview &&
+    !canHodDecide &&
+    !canAdminConfirm &&
+    !isApprovedVehicleAwaitingAllocation
+  ) {
     return null;
   }
 
@@ -336,6 +349,12 @@ export function ApprovalControls({
               {isPending ? "Confirming…" : "Confirm"}
             </Button>
           )}
+
+          {isApprovedVehicleAwaitingAllocation && (
+            <span className="text-xs font-medium text-primary whitespace-nowrap">
+              Awaiting allocation
+            </span>
+          )}
         </div>
 
         <RejectionDialog
@@ -364,6 +383,8 @@ export function ApprovalControls({
           ? "Administrative review actions"
           : canHodDecide
           ? "Department Head approval"
+          : isApprovedVehicleAwaitingAllocation
+          ? "Vehicle & driver allocation pending"
           : "Final administrative confirmation"}
       </h2>
 
@@ -375,8 +396,14 @@ export function ApprovalControls({
 
       {canHodDecide && (
         <p className="text-sm text-secondary">
-          As the Department Head, review this room reservation requested by your department member. You may approve the request to allow final scheduling, or reject it with an explanatory note.
+          As the Department Head, review this reservation requested by your department member. You may approve the request to allow final scheduling, or reject it with an explanatory note.
         </p>
+      )}
+
+      {isApprovedVehicleAwaitingAllocation && (
+        <Feedback tone="info">
+          <strong>Vehicle & driver allocation required:</strong> This transport request has received Department Head approval. A vehicle and driver will be allocated upon final confirmation (Phase 3C).
+        </Feedback>
       )}
 
       {canAdminConfirm && (

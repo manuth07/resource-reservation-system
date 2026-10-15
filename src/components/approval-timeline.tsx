@@ -251,7 +251,9 @@ export function ApprovalTimeline({
             isCurrent={reservation.status === "APPROVED"}
             notes={
               reservation.status === "APPROVED"
-                ? "Approved by Department Head. Awaiting final Administrator scheduling confirmation."
+                ? reservation.requestedCategory.isVehicle
+                  ? "Approved by Department Head. Awaiting final vehicle and driver allocation by Administrator."
+                  : "Approved by Department Head. Awaiting final Administrator scheduling confirmation."
                 : undefined
             }
           />

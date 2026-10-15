@@ -29,6 +29,8 @@ async function ResourceDetailContent({ params }: Props) {
     resource.isActive && !resource.requiresApproval && !resource.category.isVehicle;
   const isRequestEligible =
     resource.isActive && resource.requiresApproval && !resource.category.isVehicle;
+  const isTransportEligible =
+    resource.isActive && resource.category.isVehicle;
 
   return (
     <>
@@ -54,10 +56,18 @@ async function ResourceDetailContent({ params }: Props) {
                 Request reservation
               </Link>
             )}
+            {isTransportEligible && (
+              <Link
+                className="button button-primary"
+                href={`/transport/request?categoryId=${resource.category.id}`}
+              >
+                Request transport
+              </Link>
+            )}
             {user.role === "ADMIN" && (
               <Link
                 className={
-                  isDirectBookingEligible || isRequestEligible
+                  isDirectBookingEligible || isRequestEligible || isTransportEligible
                     ? "button button-secondary"
                     : "button button-primary"
                 }

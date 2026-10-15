@@ -47,11 +47,21 @@ async function BookResourceContent({ params }: Props) {
             </p>
           )}
           {isVehicle && (
-            <p className="text-secondary">
-              Vehicle resources cannot be directly reserved. Vehicles and drivers must be allocated by administrators as part of the vehicle request workflow.
-            </p>
+            <div className="space-y-3">
+              <p className="text-secondary">
+                Vehicle resources cannot be directly reserved. Transport requests are submitted by vehicle category, and vehicles and drivers are allocated by administrators during approval and scheduling.
+              </p>
+              <div>
+                <Link
+                  href={`/transport/request?categoryId=${resource.category.id}`}
+                  className="button button-primary"
+                >
+                  Request transport
+                </Link>
+              </div>
+            </div>
           )}
-          <div className="pt-4 border-t border-border">
+          <div className="pt-4 border-t border-border flex items-center gap-3">
             <Link
               href={`/resources/${resource.id}`}
               className="button button-secondary"

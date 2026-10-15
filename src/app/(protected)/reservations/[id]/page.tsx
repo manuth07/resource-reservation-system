@@ -114,8 +114,13 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
   return (
     <>
       <PageHeader
-        section="Reservations"
-        title={reservation.resource?.name ?? "Resource reservation"}
+        section={reservation.requestedCategory.isVehicle ? "Transport reservation" : "Reservations"}
+        title={
+          reservation.resource?.name ??
+          (reservation.requestedCategory.isVehicle
+            ? `${reservation.requestedCategory.name} Request`
+            : "Resource reservation")
+        }
         description={`Reference ID: ${reservation.id}`}
         action={
           <div className="flex items-center gap-2">
@@ -141,7 +146,9 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
 
         {requested === "1" && (
           <Feedback tone="info">
-            Your reservation request has been submitted successfully and is now pending administrative review. You will see progress updates on this page as decisions are recorded.
+            {reservation.requestedCategory.isVehicle
+              ? "Your transport request has been submitted successfully and is pending administrative review and Department Head approval. A vehicle and driver will be allocated upon final confirmation."
+              : "Your reservation request has been submitted successfully and is now pending administrative review. You will see progress updates on this page as decisions are recorded."}
           </Feedback>
         )}
 
@@ -152,6 +159,8 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
           userRole={user.role}
           isDepartmentHeadForReservation={isDepartmentHeadForReservation}
           isRequester={isOwner}
+          isVehicle={reservation.requestedCategory.isVehicle}
+          resourceId={reservation.resourceId}
         />
 
         {/* Primary Schedule & Timing Information */}
@@ -188,9 +197,13 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
         {/* Multi-stage Approval Audit Workflow */}
         <ApprovalTimeline reservation={reservation} />
 
-        {/* Resource Details */}
+        {/* Resource Details / Transport Specifications */}
         <Card className="p-6 sm:p-8 space-y-6">
-          <h2 className="section-title">Reserved resource</h2>
+          <h2 className="section-title">
+            {reservation.requestedCategory.isVehicle
+              ? "Requested transport specifications"
+              : "Reserved resource"}
+          </h2>
           {reservation.resource ? (
             <dl className="grid gap-6 sm:grid-cols-2">
               <div>
@@ -229,6 +242,45 @@ async function ReservationDetailContent({ params, searchParams }: Props) {
                   {reservation.resource.requiresApproval
                     ? "Requires Department Head and Admin approval"
                     : "Direct booking eligible"}
+                </dd>
+              </div>
+            </dl>
+          ) : reservation.requestedCategory.isVehicle ? (
+            <dl className="grid gap-6 sm:grid-cols-2">
+              <div>
+                <dt className="form-label">Vehicle category</dt>
+                <dd className="mt-1">
+                  <CategoryBadge category={reservation.requestedCategory} />
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Assigned vehicle</dt>
+                <dd className="mt-1 text-sm text-secondary italic">
+                  Vehicle awaiting allocation
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Destination</dt>
+                <dd className="mt-1 text-base font-medium text-foreground">
+                  {reservation.destination ?? "Not specified"}
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Passenger count</dt>
+                <dd className="mt-1 text-base font-semibold text-foreground tabular-nums">
+                  {reservation.passengerCount ? `${reservation.passengerCount} passengers` : "Not specified"}
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Assigned driver</dt>
+                <dd className="mt-1 text-sm text-secondary italic">
+                  Driver awaiting allocation
+                </dd>
+              </div>
+              <div>
+                <dt className="form-label">Allocation procedure</dt>
+                <dd className="mt-1 text-sm text-secondary">
+                  Vehicles and drivers are allocated by Administrators during final scheduling.
                 </dd>
               </div>
             </dl>
